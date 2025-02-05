@@ -1,4 +1,5 @@
-﻿  RemoteCtrl.cpp
+﻿  pch.cpp
+  RemoteCtrl.cpp
   ServerSocket.cpp
   正在生成代码...
   RemoteCtrl.vcxproj -> D:\DEVstudy\RemoteItem\study_project\RemoteCtrl\Debug\RemoteCtrl.exe
