@@ -1,10 +1,4 @@
 ﻿  RemoteCtrl.cpp
-D:\DEVstudy\RemoteItem\study_project\RemoteCtrl\RemoteCtrl\ServerSocket.h(82,21): warning C4244: “=”: 从“DWORD”转换到“WORD”，可能丢失数据
-  (编译源文件“/RemoteCtrl.cpp”)
-  
   ServerSocket.cpp
-D:\DEVstudy\RemoteItem\study_project\RemoteCtrl\RemoteCtrl\ServerSocket.h(82,21): warning C4244: “=”: 从“DWORD”转换到“WORD”，可能丢失数据
-  (编译源文件“/ServerSocket.cpp”)
-  
   正在生成代码...
   RemoteCtrl.vcxproj -> D:\DEVstudy\RemoteItem\study_project\RemoteCtrl\Debug\RemoteCtrl.exe

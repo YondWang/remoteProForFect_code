@@ -79,7 +79,7 @@ public:
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)(pData) = sHead; pData += 2;
-		*(WORD*)(pData) = nLength; pData += 4;
+		*(DWORD*)(pData) = nLength; pData += 4;
 		*(WORD*)(pData) = sCmd; pData += 2;
 		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 		*(WORD*)pData = sSum;
@@ -159,6 +159,13 @@ public:
 	bool Send(CPacket& pack) {
 		if (m_clnt == -1) return false;
 		return send(m_clnt, pack.Data(), pack.Size(), 0) > 0;
+	}
+	bool GetFilePath(std::string& strPath) {
+		if (m_packet.sCmd == 2) {
+			strPath = m_packet.strData;
+			return true;
+		}
+		return false;
 	}
 private:
 	SOCKET m_clnt, m_sock;
