@@ -12,3 +12,6 @@
 /RemoteCtrl/RemoteCtrl/Debug
 /RemoteCtrl/RemoteClnt/Debug
 /.vs
+/RemoteCtrl/RemoteCtrl/*.aps
+/RemoteCtrl/RemoteClnt/*.aps
+/RemoteCtrl/Debug
