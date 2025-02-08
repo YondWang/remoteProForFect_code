@@ -252,13 +252,28 @@ int SendScreen() {
 	BitBlt(screen.GetDC(), 0, 0, 2560, 1420, hScreen, 0, 0, SRCCOPY);
 
 	ReleaseDC(NULL, hScreen);
-
-	DWORD tick = GetTickCount64();
-	screen.Save(_T("test_2025.png"), Gdiplus::ImageFormatPNG);
-	TRACE("png %d", GetTickCount64() - tick);
-	tick = GetTickCount64();
-	screen.Save(_T("test_2025.jpg"), Gdiplus::ImageFormatJPEG);
-	TRACE("jpg %d", GetTickCount64() - tick);
+	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+	if (hMem == NULL) return -1;
+	IStream* pStream = NULL;
+	HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+	if (ret == S_OK) {
+		screen.Save(pStream, Gdiplus::ImageFormatJPEG);
+		LARGE_INTEGER bg = { 0 };
+		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+		PBYTE pData = (PBYTE)GlobalLock(hMem);		//?
+		SIZE_T nSize = GlobalSize(hMem);
+		CPacket pack(6, pData, nSize);
+		CServerSocket::getInstence()->Send(pack);
+		GlobalUnlock(hMem);
+	}
+	//DWORD tick = GetTickCount64();
+	//screen.Save(_T("test_2025.png"), Gdiplus::ImageFormatPNG);
+	/*TRACE("png %d\r\n", GetTickCount64() - tick);
+	tick = GetTickCount64();*/
+	
+	//TRACE("jpg %d\r\n", GetTickCount64() - tick);
+	pStream->Release();
+	GlobalFree(hMem);
 	screen.ReleaseDC();
 	return 0;
 }
