@@ -249,7 +249,7 @@ int SendScreen() {
 	int nWidth = GetDeviceCaps(hScreen, HORZRES);
 	int nHeight = GetDeviceCaps(hScreen, VERTRES);
 	screen.Create(nWidth, nHeight, nBitPerPixel);
-	BitBlt(screen.GetDC(), 0, 0, 2560, 1420, hScreen, 0, 0, SRCCOPY);
+	BitBlt(screen.GetDC(), 0, 0, GetSystemMetrics(SM_CXFULLSCREEN), GetSystemMetrics(SM_CYFULLSCREEN) - 30, hScreen, 0, 0, SRCCOPY);
 
 	ReleaseDC(NULL, hScreen);
 	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
@@ -258,6 +258,7 @@ int SendScreen() {
 	HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
 	if (ret == S_OK) {
 		screen.Save(pStream, Gdiplus::ImageFormatJPEG);
+		//screen.Save(_T("test_2025.jpg"), Gdiplus::ImageFormatJPEG);
 		LARGE_INTEGER bg = { 0 };
 		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
 		PBYTE pData = (PBYTE)GlobalLock(hMem);		//?
@@ -278,13 +279,63 @@ int SendScreen() {
 	return 0;
 }
 
-int LockMachine() {
+#include "LockDialog.h"
+CLockDialog dlg;
+unsigned threadId{};
 
+unsigned _stdcall threadLockDlg(void* arg) {
+	TRACE("%s(%d):%d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
+	dlg.Create(IDD_DIALOG_INFO, NULL);
+	dlg.ShowWindow(SW_SHOW);
+	//遮蔽后台窗口
+	CRect rect;
+	rect.left = 0;
+	rect.top = 0;
+	rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
+	rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+	rect.bottom *= 1;
+	dlg.MoveWindow(rect);
+	dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);		//窗口置顶
+	ShowCursor(false);			//设置窗口内不显示鼠标
+	dlg.GetWindowRect(rect);	//获取窗口大小
+	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);		//隐藏任务栏
+	ClipCursor(rect);			//限制鼠标活动范围
+	MSG msg;
+	while (GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if (msg.message == WM_KEYDOWN) {
+			TRACE("msg:%08X wparam:%08X\r\n", msg.message, msg.wParam, msg.lParam);
+			if (msg.wParam == 0x1B) {		//按下esc退出
+				break;
+			}
+		}
+	}
+	ShowCursor(true);
+	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
+	dlg.DestroyWindow();
+	_endthreadex(0);		//终止线程
+	return 0;
+}
+
+int LockMachine() {
+	if ((dlg.m_hWnd == NULL) || (dlg.m_hWnd == INVALID_HANDLE_VALUE)) {
+		//_beginthread(threadLockDlg, 0, NULL);		//启动线程
+		_beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadId);
+		TRACE("threadid = %d\r\n", threadId);
+	}
+	CPacket pack(7, NULL, 0);
+	CServerSocket::getInstence()->Send(pack);
 	return 0;
 }
 
 int UnlockMachine() {
-	
+	//dlg.SendMessage(WM_KEYDOWN, 0x41, 0x1B);
+	//::SendMessage(dlg.m_hWnd, WM_KEYDOWN, 0x1B, 0x01E0001);
+	PostThreadMessage(threadId, WM_KEYDOWN, 0x1B, 0);
+	CPacket pack(7, NULL, 0);
+	CServerSocket::getInstence()->Send(pack);
+
 	return 0;
 }
 
@@ -325,7 +376,7 @@ int main()
 			//    int ret = pserver->DealCommand();
 			//    //TODO:
 			//}
-			int nCmd = 6;
+			int nCmd = 7;
 			switch (nCmd)
 			{
 			case 1:     //查看磁盘分区
@@ -348,6 +399,8 @@ int main()
 				break;
 			case 7:		//锁机
 				LockMachine();
+				/*Sleep(50);
+				LockMachine();*/
 				break;
 			case 8:		//解锁
 				UnlockMachine();
@@ -355,7 +408,12 @@ int main()
 			default:
 				break;
 			}
-
+			Sleep(5000);
+			UnlockMachine();
+			TRACE("m_hWnd = %08X\r\n", dlg.m_hWnd);
+			while (dlg.m_hWnd != NULL) {
+				Sleep(10);
+			}
 		}
 	}
 	else
