@@ -1,4 +1,8 @@
 ﻿  RemoteCtrl.cpp
-  ServerSocket.cpp
-  正在生成代码...
-  RemoteCtrl.vcxproj -> D:\DEVstudy\RemoteItem\study_project\RemoteCtrl\Debug\RemoteCtrl.exe
+D:\DEVstudy\RemoteItem\RemoteItem_code\RemoteCtrl\RemoteCtrl\RemoteCtrl.cpp(256,13): warning C4244: “初始化”: 从“ULONGLONG”转换到“DWORD”，可能丢失数据
+  (编译源文件“/RemoteCtrl.cpp”)
+  
+D:\DEVstudy\RemoteItem\RemoteItem_code\RemoteCtrl\RemoteCtrl\RemoteCtrl.cpp(259,23): warning C4244: “=”: 从“ULONGLONG”转换到“DWORD”，可能丢失数据
+  (编译源文件“/RemoteCtrl.cpp”)
+  
+  RemoteCtrl.vcxproj -> D:\DEVstudy\RemoteItem\RemoteItem_code\RemoteCtrl\Debug\RemoteCtrl.exe
