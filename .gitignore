@@ -9,3 +9,6 @@
 /RemoteCtrl/x64
 /RemoteCtrl/RemoteClnt/x64
 /RemoteCtrl/RemoteCtrl/x64
+/RemoteCtrl/RemoteCtrl/Debug
+/RemoteCtrl/RemoteClnt/Debug
+/.vs
