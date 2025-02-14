@@ -34,7 +34,7 @@ public:
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
-				sHead = *(WORD*)*(pData + i);
+				sHead = *(WORD*)(pData + i);
 				i += 2;
 				break;
 			}
@@ -144,6 +144,7 @@ public:
 		sockaddr_in clnt_addr;
 		int clnt_size = sizeof(clnt_addr);
 		m_clnt = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_size);
+		TRACE("m_clnt = %d\r\n", m_clnt);
 		if (m_clnt == -1) return false;
 		return true;
 	}
@@ -152,11 +153,17 @@ public:
 		if (m_clnt == -1) return false;
 		
 		char* buffer = new char[BUFFER_SIZE];
+		if (buffer == NULL) {
+			delete[] buffer;
+			TRACE("ÄÚ´æ²»×ã!!\r\n");
+			return -2;
+		}
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_clnt, buffer + index, BUFFER_SIZE - index, 0);
 			if (len <= 0) {
+				delete[] buffer;
 				return -1;
 			}
 			index += len;
@@ -165,9 +172,12 @@ public:
 			if (len > 0) {
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
+				delete[] buffer;
 				return m_packet.sCmd;
 			}
 		}
+		delete[] buffer;
+		return -1;
 	}
 	bool Send(const char* pData, size_t nSize) {
 		if (m_clnt == -1) return false;
@@ -190,6 +200,13 @@ public:
 			return true;
 		}
 		return false;
+	}
+	CPacket& GetPacket() {
+		return m_packet;
+	}
+	void CloseClient() {
+		closesocket(m_clnt);
+		m_clnt = INVALID_SOCKET;
 	}
 private:
 	SOCKET m_clnt, m_sock;

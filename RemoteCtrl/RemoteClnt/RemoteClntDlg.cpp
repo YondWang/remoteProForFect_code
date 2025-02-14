@@ -65,6 +65,7 @@ BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_BTN_TEST, &CRemoteClntDlg::OnBnClickedBtnTest)
 END_MESSAGE_MAP()
 
 
@@ -153,3 +154,18 @@ HCURSOR CRemoteClntDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+void CRemoteClntDlg::OnBnClickedBtnTest()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CClientSocket* pClient = CClientSocket::getInstence();
+	int ret = pClient->InitSocket("127.0.0.1");	//TODO:返回值处理
+	if (!ret) {
+		AfxMessageBox("网络初始化失败！");
+	}
+	CPacket pack(2001, NULL, 0);
+	ret = pClient->Send(pack);
+	//TRACE("send ret: %d", ret);
+	ret = pClient->DealCommand();
+	TRACE("ack:%d\r\n", ret); 
+	pClient->CloseSocket();
+}

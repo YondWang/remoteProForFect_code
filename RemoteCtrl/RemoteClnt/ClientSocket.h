@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <string>
+#include <vector>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -36,7 +37,7 @@ public:
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
-				sHead = *(WORD*)*(pData + i);
+				sHead = *(WORD*)(pData + i);
 				i += 2;
 				break;
 			}
@@ -114,20 +115,7 @@ typedef struct MouseEvent {
 	POINT ptXY;		//坐标
 }MOUSEEV, * PMOUSEEV;
 
-std::string GetErrorInfo(int wsaErrCode) {
-	std::string ret;
-	LPVOID lpMsgBuf = NULL;
-	FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-		NULL,
-		wsaErrCode,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf, 0, NULL
-	);
-	ret = (char*)lpMsgBuf;
-	LocalFree(lpMsgBuf);
-	return ret;
-}
+std::string GetErrInfo(int wsaErrCode);
 
 class CClientSocket
 {
@@ -139,6 +127,8 @@ public:
 		return m_instance;
 	}
 	bool InitSocket(const std::string strIPAddress) {
+		if (m_sock != INVALID_SOCKET) CloseSocket();
+		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 		//TODO:校验
 		sockaddr_in serv_addr;
@@ -146,7 +136,7 @@ public:
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = inet_addr(strIPAddress.c_str());
 		serv_addr.sin_port = htons(2904);
-
+		TRACE("m_sock = %d\r\n", m_sock);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("指定的ip地址不存在！！");
 			return false;
@@ -155,7 +145,8 @@ public:
 		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
 		if (ret == -1) {
 			AfxMessageBox("连接失败，请检查网络");
-			TRACE("连接失败，%d %s\r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+			TRACE("连接失败，%d %s\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
+			return false;
 		}
 
 		return true;
@@ -165,17 +156,18 @@ public:
 	int DealCommand() {
 		if (m_sock == -1) return false;
 
-		char* buffer = new char[BUFFER_SIZE];
+		char* buffer = m_buffer.data();
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
+			TRACE("recv Len : %d\r\n", len);
 			if (len <= 0) {
 				return -1;
 			}
 			index += len;
 			len = index;
-			m_packet = CPacket((BYTE*)buffer, index);
+			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) {
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
@@ -205,7 +197,18 @@ public:
 		}
 		return false;
 	}
+
+	CPacket& GetPacket() {
+		return m_packet;
+	}
+
+	void CloseSocket() {
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
+
 private:
+	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
 	CClientSocket& operator=(const CClientSocket& ss) {}
@@ -218,7 +221,7 @@ private:
 			MessageBox(NULL, _T("无法初始化套接字环境！检查网络设置"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
