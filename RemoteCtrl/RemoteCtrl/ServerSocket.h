@@ -50,7 +50,7 @@ public:
 		}
 		sCmd = *(WORD*)(pData + i); i += 2;
 		if (nLength > 4) {
-			strData.resize(nLength - sCmd - 2 - 2);
+			strData.resize(nLength - 2 - 2);
 			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
 			i += nLength - 4;
 		}

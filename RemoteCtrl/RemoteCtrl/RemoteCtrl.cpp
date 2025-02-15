@@ -44,7 +44,7 @@ int MakeDriverInfo() {      //driver从1开始，1是a盘（软盘），2是b盘
 
 	CPacket pack(1, (BYTE*)result.c_str(), result.size());      //打包用的
 	Dump((BYTE*)pack.Data(), pack.Size());
-	//CServerSocket::getInstence()->Send(pack);
+	CServerSocket::getInstence()->Send(pack);
 	return 0;
 }
 

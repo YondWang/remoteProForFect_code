@@ -52,6 +52,8 @@ END_MESSAGE_MAP()
 
 CRemoteClntDlg::CRemoteClntDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLNT_DIALOG, pParent)
+	, m_server_address(0)
+	, m_nPort(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -59,6 +61,29 @@ CRemoteClntDlg::CRemoteClntDlg(CWnd* pParent /*=nullptr*/)
 void CRemoteClntDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_IPAddress(pDX, IDC_IPADDRESS_SERV, m_server_address);
+	DDX_Text(pDX, IDC_EDIT_port, m_nPort);
+
+	DDX_Control(pDX, IDC_TREE_DIR, m_Tree);
+}
+
+int CRemoteClntDlg::SendCommandPack(int nCmd, BYTE* pData, size_t nLength)
+{
+	UpdateData();
+
+	CClientSocket* pClient = CClientSocket::getInstence();
+	bool ret = pClient->InitSocket(m_server_address, atoi((LPCTSTR)m_nPort));	//TODO:返回值处理
+	if (!ret) {
+		AfxMessageBox("网络初始化失败！");
+		return -1;
+	}
+	CPacket pack(nCmd, pData, nLength);
+	ret = pClient->Send(pack);
+	TRACE("send ret: %d", ret);
+	int cmd = pClient->DealCommand();
+	TRACE("ack:%d\r\n", cmd);
+	pClient->CloseSocket();
+	return cmd;
 }
 
 BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
@@ -66,6 +91,7 @@ BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_TEST, &CRemoteClntDlg::OnBnClickedBtnTest)
+	ON_BN_CLICKED(IDC_BTN_FileInfo, &CRemoteClntDlg::OnBnClickedBtnFileinfo)
 END_MESSAGE_MAP()
 
 
@@ -101,7 +127,10 @@ BOOL CRemoteClntDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
-
+	UpdateData();
+	m_server_address = 0x7F000001;
+	m_nPort = _T("2904");
+	UpdateData(FALSE);
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -156,16 +185,28 @@ HCURSOR CRemoteClntDlg::OnQueryDragIcon()
 
 void CRemoteClntDlg::OnBnClickedBtnTest()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	CClientSocket* pClient = CClientSocket::getInstence();
-	int ret = pClient->InitSocket("127.0.0.1");	//TODO:返回值处理
-	if (!ret) {
-		AfxMessageBox("网络初始化失败！");
+	SendCommandPack(2001);
+}
+
+
+void CRemoteClntDlg::OnBnClickedBtnFileinfo()
+{
+	int ret = SendCommandPack(1);
+	if (ret == -1) {
+		AfxMessageBox(_T("命令处理失败！！！\r\n"));
+		return;
 	}
-	CPacket pack(2001, NULL, 0);
-	ret = pClient->Send(pack);
-	//TRACE("send ret: %d", ret);
-	ret = pClient->DealCommand();
-	TRACE("ack:%d\r\n", ret); 
-	pClient->CloseSocket();
+	CClientSocket* pClient = CClientSocket::getInstence();
+	std::string drivers = pClient->GetPacket().strData;
+	std::string dr;
+	m_Tree.DeleteAllItems();
+	for (size_t i = 0; i < drivers.size(); i++) {		//取得驱动信息
+		if (drivers[i] == ',') {
+			dr += ":";
+			m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+			dr.clear();
+			continue;
+		}
+		dr += drivers[i];
+	}
 }
