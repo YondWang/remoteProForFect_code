@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
-
+void Dump(BYTE* pData, size_t nSize);
 #pragma pack(push)
 #pragma pack(1)
 class CPacket {
@@ -112,6 +112,19 @@ typedef struct MouseEvent{
 	POINT ptXY;		//坐标
 }MOUSEEV, *PMOUSEEV;
 
+typedef struct file_info {
+	file_info() {
+		IsInvalid = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvalid;         //是否有效
+	char szFileName[256];   //文件名
+	BOOL HasNext;           //0 No 1 Has
+	BOOL IsDirectory;       //是否为目录， 0否1是
+}FILEINFO, * PFILEINFO;
+
 class CServerSocket
 {
 public:
@@ -166,6 +179,7 @@ public:
 				delete[] buffer;
 				return -1;
 			}
+			TRACE("recv %d\r\n", len);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, index);
@@ -185,6 +199,7 @@ public:
 	}
 	bool Send(CPacket& pack) {
 		if (m_clnt == -1) return false;
+		Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_clnt, pack.Data(), pack.Size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath) {
