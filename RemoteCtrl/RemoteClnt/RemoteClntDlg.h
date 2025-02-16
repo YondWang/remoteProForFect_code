@@ -23,6 +23,7 @@ protected:
 private:
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
+	void LoadFileInfo();
 	/*1 查看磁盘分区
 	2 查看指定目录下的文件
 	3 打开文件
@@ -47,4 +48,8 @@ public:
 	afx_msg void OnBnClickedBtnFileinfo();
 	CTreeCtrl m_Tree;
 	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	// 显示文件
+	CListCtrl m_List;
+	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 };
