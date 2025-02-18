@@ -105,7 +105,7 @@ int RunFile() {
 int DownloadFile() {
 	std::string strPath;
 	CServerSocket::getInstence()->GetFilePath(strPath);
-	long long data;
+	long long data = 0;
 	FILE* pFile = NULL;
 	errno_t err = fopen_s(&pFile, strPath.c_str(), "rb");
 	if (err != 0) {
@@ -117,6 +117,7 @@ int DownloadFile() {
 		fseek(pFile, 0, SEEK_END);
 		data = _ftelli64(pFile);
 		CPacket head(4, (BYTE*)&data, 8);
+		CServerSocket::getInstence()->Send(head);
 		fseek(pFile, 0, SEEK_SET);
 		char buffer[1024] = "";
 		size_t rlen = 0;

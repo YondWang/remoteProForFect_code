@@ -176,7 +176,7 @@ public:
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
 			TRACE("recv Len : %d\r\n", len);
-			if (len <= 0) {
+			if ((len <= 0) && (index <= 0)) {
 				return -1;
 			}
 			index += len;

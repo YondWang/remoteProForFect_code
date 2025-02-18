@@ -1,6 +1,8 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
+#define PORT_NUM 2904
+
 void Dump(BYTE* pData, size_t nSize);
 #pragma pack(push)
 #pragma pack(1)
@@ -141,9 +143,11 @@ public:
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = INADDR_ANY;
-		serv_addr.sin_port = htons(2904);
+		serv_addr.sin_port = htons(PORT_NUM);
 		//TODO:°ó¶¨
-		if (bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr))) {
+		int bind_ret = bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
+		if (bind_ret == -1) {
+			TRACE("bind:%d %s\r\n", bind_ret, strerror(errno));
 			return false;
 		}
 		//TODO:
@@ -199,11 +203,11 @@ public:
 	}
 	bool Send(CPacket& pack) {
 		if (m_clnt == -1) return false;
-		Dump((BYTE*)pack.Data(), pack.Size());
+		//Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_clnt, pack.Data(), pack.Size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath) {
-		if (m_packet.sCmd >= 2 && m_packet.sCmd <= 3) {
+		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4) || m_packet.sCmd == 9) {
 			strPath = m_packet.strData;
 			return true;
 		}
@@ -273,4 +277,4 @@ private:
 	static CHelper m_helper;
 };
 
-extern CServerSocket server;
+//extern CServerSocket server;
