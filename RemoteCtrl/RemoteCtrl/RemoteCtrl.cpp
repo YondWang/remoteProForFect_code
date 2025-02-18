@@ -329,6 +329,20 @@ int UnlockMachine() {
 	return 0;
 }
 
+int DeleteLocalFile() {
+	//TODO: delete
+	std::string strPath;
+	CServerSocket::getInstence()->GetFilePath(strPath);
+	TCHAR sPath[MAX_PATH] = _T("");
+	//mbstowcs(sPath, strPath.c_str(), strPath.size());		容易乱码，英文可以
+	MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath, sizeof(sPath) / sizeof(TCHAR));
+	DeleteFileA(strPath.c_str());
+	CPacket pack(9, NULL, 0);
+	bool ret = CServerSocket::getInstence()->Send(pack);
+	TRACE("Send ret = %d\r\n", ret);
+	return 0;
+}
+
 int TestConnect() {
 	CPacket pack(2001, NULL, 0);
 	bool ret = CServerSocket::getInstence()->Send(pack);
@@ -364,6 +378,9 @@ int ExcuteCommend(int nCmd) {
 		break;
 	case 8:		//解锁
 		ret = UnlockMachine();
+		break;
+	case 9:		//删除文件
+		ret = DeleteLocalFile();
 		break;
 	case 2001:
 		ret = TestConnect();
