@@ -7,12 +7,14 @@
 #include "RemoteClnt.h"
 #include "RemoteClntDlg.h"
 #include "afxdialogex.h"
+#include <locale.h>
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-#define PORT_NUM "2904"
+#define PORT_NUM "2804"
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -88,6 +90,100 @@ int CRemoteClntDlg::SendCommandPack(int nCmd, bool bAutoClose, BYTE* pData, size
 	return cmd;
 }
 
+void CRemoteClntDlg::threadWatchData()
+{
+	CClientSocket* pClnt = NULL;
+	do {
+		pClnt = CClientSocket::getInstence();
+	} while (pClnt == NULL);
+	for (;;) {			//= while(true)
+		CPacket pack(6, NULL, 0);
+		bool ret = pClnt->Send(pack);
+		if (ret) {
+			int cmd = pClnt->DealCommand();		//拿数据
+			if (cmd == 6) {
+				if (m_isFull == false) {
+					BYTE* pData = (BYTE*)pClnt->GetPacket().strData.c_str();
+					//TODO:存入CImage
+					m_isFull = true;
+				}
+			}
+		}
+		else {
+			Sleep(1);
+		}
+		
+	}
+}
+
+void CRemoteClntDlg::threadEntryForWatchData(void* arg)
+{
+	CRemoteClntDlg* thiz = (CRemoteClntDlg*)arg;
+	thiz->threadWatchData();
+	_endthread();
+}
+
+void CRemoteClntDlg::threadEntryDownFile(void* arg)
+{
+	CRemoteClntDlg* thiz = (CRemoteClntDlg*)arg;
+	thiz->threadDownFile();
+	_endthread();
+}
+
+void CRemoteClntDlg::threadDownFile()
+{
+	int nListSelected = m_List.GetSelectionMark();
+	CString strFile = m_List.GetItemText(nListSelected, 0);
+	CFileDialog dlg(FALSE, NULL, strFile, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, this);
+	if (dlg.DoModal() == IDOK) {
+		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
+		if (pFile == NULL) {
+			AfxMessageBox(_T("本地没有权限保存该文件！或文件无法创建!"));
+			m_dlgStatus.ShowWindow(SW_HIDE);
+			EndWaitCursor();
+			return;
+		}
+
+		HTREEITEM hSelected = m_Tree.GetSelectedItem();
+		strFile = GetPath(hSelected) + strFile;
+		TRACE("%s\r\n", LPCSTR(strFile));
+		CClientSocket* pClnt = CClientSocket::getInstence();
+		do {
+			//int ret = SendCommandPack(4, false, (BYTE*)LPCSTR(strFile), strFile.GetLength());
+			//int ret = SendMessage(WM_SEND_PACKET, 4 << 1 | 0, (LPARAM)(LPCSTR)strFile);
+			int ret = SendMessage(WM_SEND_PACKET, 4 << 1 | 0, (LPARAM)(LPCSTR)strFile);		//???
+			if (ret < 0) {
+				AfxMessageBox("执行下载失败!!");
+				TRACE("执行下载失败！ ret = %d", ret);
+				break;
+			}
+			long long nLenth = *(long long*)pClnt->GetPacket().strData.c_str();
+			if (nLenth == 0) {
+				AfxMessageBox("文件长度为0，或无法读取文件！");
+				break;
+			}
+			long long nCount = 0;
+
+			while (nCount < nLenth) {
+				ret = pClnt->DealCommand();
+				if (ret < 0) {
+					AfxMessageBox("传输失败!");
+					TRACE("传输失败！ret = %d\r\n", ret);
+					break;
+				}
+				fwrite(pClnt->GetPacket().strData.c_str(), 1, pClnt->GetPacket().strData.size(), pFile);
+				nCount += pClnt->GetPacket().strData.size();
+			}
+
+		} while (false);
+		fclose(pFile);
+		pClnt->CloseSocket();
+	}
+	m_dlgStatus.ShowWindow(SW_HIDE);
+	EndWaitCursor();
+	MessageBox(_T("下载完成！！"), _T("完成！"));
+}
+
 BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
@@ -97,9 +193,10 @@ BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClntDlg::OnNMDblclkTreeDir)
 	ON_NOTIFY(NM_CLICK, IDC_TREE_DIR, &CRemoteClntDlg::OnNMClickTreeDir)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClntDlg::OnNMRClickListFile)
-	ON_COMMAND(ID_DOWNLOAD, &CRemoteClntDlg::OnDownload)
+	ON_COMMAND(ID_DOWNLOAD, &CRemoteClntDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETEFILE, &CRemoteClntDlg::OnDeletefile)
 	ON_COMMAND(ID_RUNFILE, &CRemoteClntDlg::OnRunfile)
+	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClntDlg::OnSendPacket)		//注册消息
 END_MESSAGE_MAP()
 
 
@@ -161,6 +258,9 @@ BOOL CRemoteClntDlg::OnInitDialog()
 	m_server_address = 0x7F000001;
 	m_nPort = _T(PORT_NUM);
 	UpdateData(FALSE);
+	m_dlgStatus.Create(IDD_DLG_STATUS, this);
+	m_dlgStatus.ShowWindow(SW_HIDE);
+	m_isFull = false;
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -339,56 +439,17 @@ void CRemoteClntDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 
 }
 
-
-void CRemoteClntDlg::OnDownload()
+void CRemoteClntDlg::OnDownloadFile()
 {
-	int nListSelected = m_List.GetSelectionMark();
-	CString strFile = m_List.GetItemText(nListSelected, 0);
-	
-	CFileDialog dlg(FALSE, NULL, strFile, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, this);
-	if (dlg.DoModal() == IDOK) {
-		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
-		if (pFile == NULL) {
-			AfxMessageBox(_T("本地没有权限保存该文件！,或文件无法创建!"));
-			return;
-		}
-
-		HTREEITEM hSelected = m_Tree.GetSelectedItem();
-		strFile = GetPath(hSelected) + strFile;
-		TRACE("%s\r\n", LPCSTR(strFile));
-		CClientSocket* pClnt = CClientSocket::getInstence();
-		do {
-			int ret = SendCommandPack(4, false, (BYTE*)LPCSTR(strFile), strFile.GetLength());
-			//int ret = SendMessage(WM_SEND_PACKET, 4 << 1 | 0, (LPARAM)(LPCSTR)strFile);
-			if (ret < 0) {
-				AfxMessageBox("执行下载失败!!");
-				TRACE("执行下载失败！ ret = %d", ret);
-				break;
-			}
-			long long nLenth = *(long long*)pClnt->GetPacket().strData.c_str();
-			if (nLenth == 0) {
-				AfxMessageBox("文件长度为0，或无法读取文件！");
-				break;
-			}
-			long long nCount = 0;
-
-			while (nCount < nLenth) {
-				ret = pClnt->DealCommand();
-				if (ret < 0) {
-					AfxMessageBox("传输失败!");
-					TRACE("传输失败！ret = %d\r\n", ret);
-					break;
-				}
-				fwrite(pClnt->GetPacket().strData.c_str(), 1, pClnt->GetPacket().strData.size(), pFile);
-				nCount += pClnt->GetPacket().strData.size();
-			}
-		} while (false);
-		fclose(pFile);
-		pClnt->CloseSocket();
-	}
-
+	//添加线程函数
+	_beginthread(CRemoteClntDlg::threadEntryDownFile, 0, this);
+	BeginWaitCursor();
+	Sleep(50);
+	m_dlgStatus.m_info.SetWindowText("命令正在执行中!!");
+	m_dlgStatus.ShowWindow(SW_SHOW);
+	m_dlgStatus.CenterWindow(this);
+	m_dlgStatus.SetActiveWindow();
 }
-
 
 void CRemoteClntDlg::OnDeletefile()
 {
@@ -419,4 +480,11 @@ void CRemoteClntDlg::OnRunfile()
 	if (ret < 0) {
 		AfxMessageBox("打开文件命令执行失败！！！");
 	}
+}
+
+LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM LParam)
+{
+	CString strFile = (LPCSTR)LParam;
+	int ret = SendCommandPack(wParam >> 1, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
+	return ret;
 }

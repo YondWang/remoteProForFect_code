@@ -286,7 +286,7 @@ unsigned _stdcall threadLockDlg(void* arg) {
 	rect.bottom *= 1;
 	dlg.MoveWindow(rect);
 	dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);		//窗口置顶
-	ShowCursor(false);			//设置窗口内不显示鼠标
+	ShowCursor(false);			//设置窗口内不显 示鼠标
 	dlg.GetWindowRect(rect);	//获取窗口大小
 	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);		//隐藏任务栏
 	ClipCursor(rect);			//限制鼠标活动范围

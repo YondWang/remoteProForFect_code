@@ -4,6 +4,9 @@
 
 #pragma once
 #include "ClientSocket.h"
+#include "StatusDlg.h"
+
+#define WM_SEND_PACKET (WM_USER + 1)		//发送数据包的消息
 
 // CRemoteClntDlg dialog
 class CRemoteClntDlg : public CDialogEx
@@ -21,6 +24,17 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 
 private:
+	CImage m_image;		//缓存
+	bool m_isFull;		//是否有数据		true有	false没有
+
+
+private:
+	static void threadEntryForWatchData(void* arg);		//静态函数不能用this指针
+	void threadWatchData();								//成员函数可以
+
+	static void threadEntryDownFile(void* arg);
+	void threadDownFile();
+
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	void LoadFileInfo();
@@ -36,10 +50,10 @@ private:
 	2001 测试连接
 	ret: 命令号，小于0错误	*/
 	int SendCommandPack(int nCmd, bool bAutoClose = true, BYTE* pData = nullptr, size_t nLength = 0);
-	
 	// Implementation
 protected:
 	HICON m_hIcon;
+	CStatusDlg m_dlgStatus;
 
 	void LoadFIleCurrent();
 	// Generated message map functions
@@ -59,7 +73,9 @@ public:
 	// 显示文件
 	CListCtrl m_List;
 	afx_msg void OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult);
-	afx_msg void OnDownload();
+	afx_msg void OnDownloadFile();
 	afx_msg void OnDeletefile();
 	afx_msg void OnRunfile();
+
+	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM LParam);
 };
