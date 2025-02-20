@@ -498,22 +498,24 @@ void CRemoteClntDlg::OnRunfile()
 	}
 }
 
-LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM LParam)
+LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 {
 	int ret = 0;
 	int cmd = wParam >> 1;
 	switch (cmd)
 	{
-	case 4:
-		{
-			CString strFile = (LPCSTR)LParam;
-			ret = SendCommandPack(cmd, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
-		}
+	case 4:	{
+		CString strFile = (LPCSTR)lParam;
+		ret = SendCommandPack(cmd, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
+	}
 		break;
-	case 6:
-		{
-			ret = SendCommandPack(cmd, wParam & 1);	//定义自定义消息 响应函数
-		}
+	case 5: {	//鼠标操作
+		ret = SendCommandPack(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
+	}
+		break;
+	case 6:	{
+		ret = SendCommandPack(cmd, wParam & 1);	//定义自定义消息 响应函数
+	}
 		break;
 	default:
 		ret = -1;
