@@ -93,17 +93,16 @@ int CRemoteClntDlg::SendCommandPack(int nCmd, bool bAutoClose, BYTE* pData, size
 
 void CRemoteClntDlg::threadWatchData()
 {
+	Sleep(50);
 	CClientSocket* pClnt = NULL;
 	do {
 		pClnt = CClientSocket::getInstence();
 	} while (pClnt == NULL);
+	ULONGLONG tick = GetTickCount64();
 	for (;;) {			//= while(true)
-		CPacket pack(6, NULL, 0);
-		bool ret = pClnt->Send(pack);
-		if (ret) {
-			int cmd = pClnt->DealCommand();		//拿数据
-			if (cmd == 6) {
-				if (m_isFull == false) {		//更新数据到缓存
+		if (m_isFull == false) {//更新数据到缓存
+			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);		//???
+			if (ret == 6) {
 					BYTE* pData = (BYTE*)pClnt->GetPacket().strData.c_str();
 					//TODO:存入CImage
 					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
@@ -123,12 +122,11 @@ void CRemoteClntDlg::threadWatchData()
 						m_isFull = true;
 					}
 				}
+			else {
+				Sleep(1);
 			}
 		}
-		else {
-			Sleep(1);
-		}
-		
+		else Sleep(1);
 	}
 }
 
@@ -502,8 +500,26 @@ void CRemoteClntDlg::OnRunfile()
 
 LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM LParam)
 {
-	CString strFile = (LPCSTR)LParam;
-	int ret = SendCommandPack(wParam >> 1, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
+	int ret = 0;
+	int cmd = wParam >> 1;
+	switch (cmd)
+	{
+	case 4:
+		{
+			CString strFile = (LPCSTR)LParam;
+			ret = SendCommandPack(cmd, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
+		}
+		break;
+	case 6:
+		{
+			ret = SendCommandPack(cmd, wParam & 1);	//定义自定义消息 响应函数
+		}
+		break;
+	default:
+		ret = -1;
+		break;
+	}
+	
 	return ret;
 }
 
@@ -511,8 +527,8 @@ LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM LParam)
 void CRemoteClntDlg::OnBnClickedBtnStartwatch()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	_beginthread(CRemoteClntDlg::threadEntryForWatchData, 0, this);
 	CWatchdialog dlg(this);
+	_beginthread(CRemoteClntDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
 }
 

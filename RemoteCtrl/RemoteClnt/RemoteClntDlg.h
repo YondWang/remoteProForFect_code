@@ -30,6 +30,9 @@ public:
 	CImage& getImage() {
 		return m_image;
 	}
+	void setImageStatus(bool isFull = false) {
+		m_isFull = isFull;
+	}
 private:
 	CImage m_image;		//缓存
 	bool m_isFull;		//是否有数据		true有	false没有
