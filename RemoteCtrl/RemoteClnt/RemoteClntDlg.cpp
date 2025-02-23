@@ -15,7 +15,7 @@
 #define new DEBUG_NEW
 #endif
 
-#define PORT_NUM "2804"
+#define PORT_NUM "2904"
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -93,13 +93,14 @@ int CRemoteClntDlg::SendCommandPack(int nCmd, bool bAutoClose, BYTE* pData, size
 
 void CRemoteClntDlg::threadWatchData()
 {
+	//可能存在异步问题导致程序崩溃
 	Sleep(50);
 	CClientSocket* pClnt = NULL;
 	do {
 		pClnt = CClientSocket::getInstence();
 	} while (pClnt == NULL);
 	ULONGLONG tick = GetTickCount64();
-	for (;;) {			//= while(true)
+	while(!m_isClosed) {			//= while(true)
 		if (m_isFull == false) {//更新数据到缓存
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);		//???
 			if (ret == 6) {
@@ -118,6 +119,7 @@ void CRemoteClntDlg::threadWatchData()
 						pStream->Write(pData, pClnt->GetPacket().strData.size(), &length);
 						LARGE_INTEGER bg = { 0 };
 						pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+						if ((HBITMAP)m_image != NULL) m_image.Destroy();
 						m_image.Load(pStream);
 						m_isFull = true;
 					}
@@ -271,7 +273,8 @@ BOOL CRemoteClntDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 	UpdateData();
-	m_server_address = 0x7F000001;
+	m_server_address = 0xC0A88B84;	//192.168.139.132
+	//m_server_address = 0x7F000001;		//127.0.0.1
 	m_nPort = _T(PORT_NUM);
 	UpdateData(FALSE);
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
@@ -529,9 +532,12 @@ LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 void CRemoteClntDlg::OnBnClickedBtnStartwatch()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	m_isClosed = false;
 	CWatchdialog dlg(this);
-	_beginthread(CRemoteClntDlg::threadEntryForWatchData, 0, this);
+	HANDLE hThread = (HANDLE)_beginthread(CRemoteClntDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
+	m_isClosed = true;
+	WaitForSingleObject(hThread, 500);
 }
 
 

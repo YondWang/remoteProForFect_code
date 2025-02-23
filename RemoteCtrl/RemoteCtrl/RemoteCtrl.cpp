@@ -154,10 +154,7 @@ int mouseEvent() {
 		default:
 			break;
 		}
-		if (nFlags != 8) {
-			SetCursorPos(mouse.ptXY.x, mouse.ptXY.y);
-		}
-
+		SetCursorPos(mouse.ptXY.x, mouse.ptXY.y);
 		switch (mouse.nAction) {
 		case 0:     //单击
 			nFlags |= 0x10;
@@ -220,10 +217,10 @@ int mouseEvent() {
 			mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, GetMessageExtraInfo());
 			break;
 		case 0x08://单纯的鼠标移动
-			mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
+			//mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
 			break;
 		}
-		CPacket pack(4, NULL, 0);
+		CPacket pack(5, NULL, 0);
 		CServerSocket::getInstence()->Send(pack);
 	}
 	else {
@@ -242,7 +239,7 @@ int SendScreen() {
 	int nWidth = GetDeviceCaps(hScreen, HORZRES);
 	int nHeight = GetDeviceCaps(hScreen, VERTRES);
 	screen.Create(nWidth, nHeight, nBitPerPixel);
-	BitBlt(screen.GetDC(), 0, 0, GetSystemMetrics(SM_CXFULLSCREEN), GetSystemMetrics(SM_CYFULLSCREEN) - 30, hScreen, 0, 0, SRCCOPY);
+	BitBlt(screen.GetDC(), 0, 0, nWidth, nHeight, hScreen, 0, 0, SRCCOPY);
 
 	ReleaseDC(NULL, hScreen);
 	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
