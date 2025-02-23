@@ -40,6 +40,8 @@ BEGIN_MESSAGE_MAP(CWatchdialog, CDialog)
 	ON_WM_RBUTTONUP()
 	ON_WM_MOUSEMOVE()
 	ON_STN_CLICKED(IDC_WATCH, &CWatchdialog::OnStnClickedWatch)
+	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchdialog::OnBnClickedBtnLock)
+	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchdialog::OnBnClickedBtnUnlock)
 END_MESSAGE_MAP()
 
 
@@ -237,10 +239,25 @@ void CWatchdialog::OnStnClickedWatch()
 	}
 }
 
-
 void CWatchdialog::OnOK()
 {
 	// TODO: 在此添加专用代码和/或调用基类
 
 	//CDialog::OnOK();
+}
+
+
+void CWatchdialog::OnBnClickedBtnLock()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CRemoteClntDlg* pParent = (CRemoteClntDlg*)GetParent();
+	pParent->SendMessage(WM_SEND_PACKET, 7 << 1 | 1);
+}
+
+
+void CWatchdialog::OnBnClickedBtnUnlock()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CRemoteClntDlg* pParent = (CRemoteClntDlg*)GetParent();
+	pParent->SendMessage(WM_SEND_PACKET, 8 << 1 | 1);
 }

@@ -516,7 +516,9 @@ LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 		ret = SendCommandPack(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
 	}
 		break;
-	case 6:	{
+	case 6:
+	case 7:
+	case 8: {
 		ret = SendCommandPack(cmd, wParam & 1);	//定义自定义消息 响应函数
 	}
 		break;
