@@ -4,6 +4,7 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#define BUFFER_SIZE 819200
 
 #pragma pack(push)
 #pragma pack(1)
@@ -166,7 +167,6 @@ public:
 		return true;
 	}
 	
-#define BUFFER_SIZE 819200
 	int DealCommand() {
 		if (m_sock == -1) return -1;
 
