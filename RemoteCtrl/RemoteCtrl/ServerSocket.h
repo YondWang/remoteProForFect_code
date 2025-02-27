@@ -1,131 +1,11 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
+#include <list>
+#include "Packet.h"
 #define PORT_NUM 2904
 
-void Dump(BYTE* pData, size_t nSize);
-#pragma pack(push)
-#pragma pack(1)
-class CPacket {
-public:
-	CPacket() : sHead(0), nLength(0), sCmd(0), sSum(0) {}
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
-		sHead = 0xFEFF;
-		nLength = nSize + 4;
-		sCmd = nCmd;
-		if (nSize > 0) {
-			strData.resize(nSize);
-			memcpy((void*)strData.c_str(), pData, nSize);
-		}
-		else {
-			strData.clear();
-		}
-		sSum = 0;
-		for (size_t j = 0; j < strData.size(); j++) {
-			sSum += BYTE(strData[j]) & 0xFF;
-		}
-	}
-	CPacket(const CPacket& pack) {
-		sHead = pack.sHead;
-		nLength = pack.nLength;
-		sCmd = pack.sCmd;
-		strData = pack.strData;
-		sSum = pack.sSum;
-	}
-	CPacket(const BYTE* pData, size_t& nSize) {
-		size_t i = 0;
-		for (; i < nSize; i++) {
-			if (*(WORD*)(pData + i) == 0xFEFF) {
-				sHead = *(WORD*)(pData + i);
-				i += 2;
-				break;
-			}
-		}
-		if (i + 2 + 4 + 2 > nSize) {	//包数据可能不全，或者包头未能全部收到
-			nSize = 0;
-			return;
-		}
-		nLength = *(DWORD*)(pData + i); i += 4;
-		if (nLength + i > nSize) {		//包未完全接收到，于是直接返回
-			nSize = 0;
-			return;
-		}
-		sCmd = *(WORD*)(pData + i); i += 2;
-		if (nLength > 4) {
-			strData.resize(nLength - 2 - 2);
-			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
-			i += nLength - 4;
-		}
-		sSum = *(WORD*)(pData + i); i += 2;
-		WORD sum = 0;
-		for (size_t j = 0; j < strData.size(); j++) {
-			sum += BYTE(strData[j]) & 0xFF;
-		}
-		if (sum == sSum) {
-			nSize = i;	//head length data...
-			return;
-		}
-		nSize = 0;
-	}
-	~CPacket() {}
-	CPacket operator=(const CPacket& pack) {
-		if (this != &pack) {
-			sHead = pack.sHead;
-			nLength = pack.nLength;
-			sCmd = pack.sCmd;
-			strData = pack.strData;
-			sSum = pack.sSum;
-		}
-		return *this;
-	}
-
-	int Size() {	//包数据大小
-		return nLength + 6;
-	}
-	const char* Data() {
-		strOut.resize(nLength + 6);
-		BYTE* pData = (BYTE*)strOut.c_str();
-		*(WORD*)(pData) = sHead; pData += 2;
-		*(DWORD*)(pData) = nLength; pData += 4;
-		*(WORD*)(pData) = sCmd; pData += 2;
-		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
-		*(WORD*)pData = sSum;
-		return strOut.c_str();
-	}
-public:
-	WORD sHead;				//固定位 FE FF
-	DWORD nLength;			//包长度
-	WORD sCmd;				//控制命令
-	std::string strData;	//包数据
-	WORD sSum;				//和校验
-	std::string strOut;		//整个包的数据
-
-};
-#pragma pack(pop)
-typedef struct MouseEvent{
-	MouseEvent() {
-		nAction = 0;
-		nButton = -1;
-		ptXY.x = 0;
-		ptXY.y = 0;
-	}
-	WORD nAction;	//点击、移动、双击
-	WORD nButton;	//left,right button
-	POINT ptXY;		//坐标
-}MOUSEEV, *PMOUSEEV;
-
-typedef struct file_info {
-	file_info() {
-		IsInvalid = FALSE;
-		IsDirectory = -1;
-		HasNext = TRUE;
-		memset(szFileName, 0, sizeof(szFileName));
-	}
-	BOOL IsInvalid;         //是否有效
-	char szFileName[256];   //文件名
-	BOOL HasNext;           //0 No 1 Has
-	BOOL IsDirectory;       //是否为目录， 0否1是
-}FILEINFO, * PFILEINFO;
+typedef void(*SOCKET_CALLBACK)(void* arg, int status, std::list<CPacket>& lstPacket, CPacket& inPack);
 
 class CServerSocket
 {
@@ -136,39 +16,41 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSocket() {
-		if (m_sock == -1) return false;
-		//TODO:校验
-		sockaddr_in serv_addr;
-		memset(&serv_addr, 0, sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = INADDR_ANY;
-		serv_addr.sin_port = htons(PORT_NUM);
-		//TODO:绑定
-		int bind_ret = bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
-		if (bind_ret == -1) {
-			TRACE("bind:%d %s\r\n", bind_ret, strerror(errno));
-			return false;
-		}
-		//TODO:
-		if (listen(m_sock, 1) == -1) {
-			return false;
-		}
+	
+	int Run(SOCKET_CALLBACK callback, void* arg, short port = PORT_NUM) {
+		bool ret = InitSocket(port);
+		if (ret == false) return -1;
+		std::list<CPacket> lstPackets;
+		m_callback = callback;
+		m_arg = arg;
+		int count = 0;
+		while (true) {
+			if (AcceptClient() == false) {
+				if (count >= 3) {
+					return -2;
+				}
+				count++;
+			}
+			int ret = DealCommand();
 
-		return true;
+			if (ret > 0) {
+				m_callback(m_arg, ret, lstPackets, m_packet);
+				while (ret > 0) {
+					if (lstPackets.size() > 0) {
+						Send(lstPackets.front());
+						lstPackets.pop_front();
+					}
+				}
+			}
+			CloseClient();
+		}
+		return 0;
 	}
-	bool AcceptClient() {
-		sockaddr_in clnt_addr;
-		int clnt_size = sizeof(clnt_addr);
-		m_clnt = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_size);
-		TRACE("m_clnt = %d\r\n", m_clnt);
-		if (m_clnt == -1) return false;
-		return true;
-	}
+	
 #define BUFFER_SIZE 4096
 	int DealCommand() {
 		if (m_clnt == -1) return false;
-		
+
 		char* buffer = new char[BUFFER_SIZE];
 		if (buffer == NULL) {
 			delete[] buffer;
@@ -176,7 +58,7 @@ public:
 			return -2;
 		}
 		memset(buffer, 0, BUFFER_SIZE);
-		size_t index = 0;
+		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_clnt, buffer + index, BUFFER_SIZE - index, 0);
 			if (len <= 0) {
@@ -224,10 +106,44 @@ public:
 		return m_packet;
 	}
 	void CloseClient() {
-		closesocket(m_clnt);
-		m_clnt = INVALID_SOCKET;
+		if (m_clnt != INVALID_SOCKET) {
+			closesocket(m_clnt);
+			m_clnt = INVALID_SOCKET;
+		}
+	}
+protected:
+	bool InitSocket(short port = PORT_NUM) {
+		if (m_sock == -1) return false;
+		//TODO:校验
+		sockaddr_in serv_addr;
+		memset(&serv_addr, 0, sizeof(serv_addr));
+		serv_addr.sin_family = AF_INET;
+		serv_addr.sin_addr.s_addr = INADDR_ANY;
+		serv_addr.sin_port = htons(port);
+		//TODO:绑定
+		int bind_ret = bind(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
+		if (bind_ret == -1) {
+			TRACE("bind:%d %s\r\n", bind_ret, strerror(errno));
+			return false;
+		}
+		//TODO:
+		if (listen(m_sock, 1) == -1) {
+			return false;
+		}
+
+		return true;
+	}
+	bool AcceptClient() {
+		sockaddr_in clnt_addr;
+		int clnt_size = sizeof(clnt_addr);
+		m_clnt = accept(m_sock, (sockaddr*)&clnt_addr, &clnt_size);
+		TRACE("m_clnt = %d\r\n", m_clnt);
+		if (m_clnt == -1) return false;
+		return true;
 	}
 private:
+	SOCKET_CALLBACK m_callback;
+	void* m_arg;
 	SOCKET m_clnt, m_sock;
 	CPacket m_packet;
 	CServerSocket& operator=(const CServerSocket& ss) {}
@@ -238,7 +154,7 @@ private:
 
 	CServerSocket() {
 		m_clnt = INVALID_SOCKET;
-		if(InitSockEnv() == FALSE) {
+		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境！检查网络设置"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
@@ -268,7 +184,7 @@ private:
 	public:
 		CHelper() {
 			CServerSocket::getInstence();
-			
+
 		}
 		~CHelper() {
 			CServerSocket::realseInstance();

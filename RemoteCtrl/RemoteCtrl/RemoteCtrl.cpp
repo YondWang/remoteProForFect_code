@@ -40,34 +40,19 @@ int main()
 		else
 		{
 			CCommand cmd;
-			// TODO: socket,bind,listen,accept,read,write,close
-			//init sock
-			CServerSocket* pserver = CServerSocket::getInstence();
-			if (pserver->InitSocket() == false) {
-			    MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-			    exit(0);
-			}
-			int count = 0;
-			while (CServerSocket::getInstence() != NULL) {
-			    if (pserver->AcceptClient() == false) {
-			        if (count >= 3) {
-			            MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
-			            exit(0);
-			        }
-			        MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败！"), MB_OK | MB_ICONERROR);
-			        count++;
-			    }
-				TRACE("AccepClient return true\r\n");
-			    int ret = pserver->DealCommand();
-				TRACE("DealCommend ret: %d\r\n", ret);
-				if (ret > 0) {
-					ret = cmd.ExcuteCommend(ret);
-					if (ret < 0) {
-						TRACE("执行命令失败，%d ret = %d\r\n", pserver->GetPacket().sCmd, ret);
-					}
-					pserver->CloseClient();
-					TRACE("Commend has done!\r\n");
-				}
+			int ret = CServerSocket::getInstence()->Run(&CCommand::RunCommand, &cmd);
+			switch (ret)
+			{
+			case -1:
+				MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+				exit(0);
+				break;
+			case -2:
+				MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
+				exit(0);
+				break;
+			default:
+				break;
 			}
 		}
 	}
