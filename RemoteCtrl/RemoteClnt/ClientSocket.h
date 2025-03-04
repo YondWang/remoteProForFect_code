@@ -4,7 +4,7 @@
 #include "framework.h"
 #include <string>
 #include <vector>
-#define BUFFER_SIZE 819200
+#define BUFFER_SIZE 4096000
 
 #pragma pack(push)
 #pragma pack(1)
@@ -153,13 +153,13 @@ public:
 		serv_addr.sin_port = htons(nPort);
 		TRACE("m_sock = %d\r\n", m_sock);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-			AfxMessageBox("指定的ip地址不存在！！");
+			AfxMessageBox(_T("指定的ip地址不存在！！"));
 			return false;
 		}
 
 		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
 		if (ret == -1) {
-			AfxMessageBox("连接失败，请检查网络");
+			AfxMessageBox(_T("连接失败，请检查网络"));
 			TRACE("连接失败，%d %s\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
 			return false;
 		}
@@ -172,6 +172,11 @@ public:
 
 		char* buffer = m_buffer.data();
 		//memset(buffer, 0, BUFFER_SIZE);
+		if (buffer == NULL) {
+			TRACE("内存不足！！\r\n");
+			delete[]buffer;
+			return -2;
+		}
 		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
@@ -183,11 +188,13 @@ public:
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) {
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);
+				memmove(buffer, buffer + len, index - len);
 				index -= len;
 				return m_packet.sCmd;
 			}
 		}
+		delete[]buffer;
+		return -2;
 	}
 	bool Send(const char* pData, size_t nSize) {
 		if (m_sock == -1) return false;

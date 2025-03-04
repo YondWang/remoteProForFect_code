@@ -231,7 +231,7 @@ void CRemoteClntDlg::LoadFIleCurrent()
 	CClientSocket* pClient = CClientSocket::getInstence();
 	while (pInfo->HasNext) {
 		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
-		if (!pInfo->IsDirectory) {
+		if (pInfo->IsDirectory) {
 			m_List.InsertItem(0, pInfo->szFileName);
 		}
 		int cmd = pClient->DealCommand();
@@ -273,8 +273,8 @@ BOOL CRemoteClntDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 	UpdateData();
-	m_server_address = 0xC0A88B84;	//192.168.139.132
-	//m_server_address = 0x7F000001;		//127.0.0.1
+	//m_server_address = 0xC0A88B84;	//192.168.139.132
+	m_server_address = 0x7F000001;		//127.0.0.1
 	m_nPort = _T(PORT_NUM);
 	UpdateData(FALSE);
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
@@ -353,11 +353,16 @@ void CRemoteClntDlg::OnBnClickedBtnFileinfo()
 		if (drivers[i] == ',') {
 			dr += ":";
 			HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-			m_Tree.InsertItem("" , hTemp, TVI_LAST);
+			m_Tree.InsertItem(NULL , hTemp, TVI_LAST);
 			dr.clear();
 			continue;
 		}
 		dr += drivers[i];
+	}
+	if (dr.size() > 0) {
+		dr += ':';
+		HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+		m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
 	}
 }
 
@@ -400,7 +405,7 @@ void CRemoteClntDlg::LoadFileInfo()
 	while (pInfo->HasNext) {
 		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
 		if (pInfo->IsDirectory) {
-			if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
+			if ((CString(pInfo->szFileName) == ".") || (CString(pInfo->szFileName) == "..")) {
 				int cmd = pClient->DealCommand();
 				TRACE("ack:%d\r\n", cmd);
 				if (cmd < 0) break;
@@ -408,7 +413,7 @@ void CRemoteClntDlg::LoadFileInfo()
 				continue;
 			}
 			HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-			m_Tree.InsertItem("", hTemp, TVI_LAST);
+			m_Tree.InsertItem(" ", hTemp, TVI_LAST);
 		}
 		else {
 			m_List.InsertItem(0, pInfo->szFileName);
@@ -418,7 +423,43 @@ void CRemoteClntDlg::LoadFileInfo()
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0) break;
 		pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
+
 	}
+	//while (true) {
+	//	if (!pInfo) break; // 保护性检查，防止野指针
+
+	//	TRACE("Processing file: [%s], is dir: %d, HasNext: %d\r\n",
+	//		pInfo->szFileName, pInfo->IsDirectory, pInfo->HasNext);
+
+	//	// 过滤 "." 和 ".."
+	//	if (pInfo->IsDirectory && (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..")) {
+	//		TRACE("Skipping . and ..\r\n");
+	//	}
+	//	else {
+	//		if (pInfo->IsDirectory) {
+	//			HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+	//			m_Tree.InsertItem("", hTemp, TVI_LAST);  // 占位符表示可以展开
+	//		}
+	//		else {
+	//			m_List.InsertItem(0, pInfo->szFileName);
+	//		}
+	//	}
+
+	//	// 检查是否有下一个文件项
+	//	if (!pInfo->HasNext) {
+	//		TRACE("No more files, requesting next packet...\r\n");
+	//		int cmd = pClient->DealCommand();
+	//		TRACE("ack: %d\r\n", cmd);
+	//		if (cmd < 0) break; // 出错时退出
+
+	//		// 重新获取新包
+	//		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
+	//	}
+	//	else {
+	//		// 正确递增 pInfo 指针
+	//		pInfo = (PFILEINFO)((BYTE*)pInfo + sizeof(FILEINFO));
+	//	}
+	//}
 	pClient->CloseSocket();
 }
 

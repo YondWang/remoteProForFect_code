@@ -90,6 +90,7 @@ protected:
 			if (_chdrive(i) == 0) {
 				if (result.size() > 0) {
 					result += ',';
+					
 				}
 				result += 'A' + i - 1;
 			}
@@ -153,16 +154,20 @@ protected:
 			lstPackets.push_back(CPacket(2, (BYTE*)&finfo, sizeof(finfo)));
 			return -3;
 		}
+		int count = 0;
 		do {
+			//TRACE("服务端发送数据...\r\n");
 			FILEINFO finfo;
-			finfo.IsDirectory = ((fdata.attrib & _A_SUBDIR) != 0);
+			finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
 			memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
 			TRACE("%s\r\n", finfo.szFileName);
 			lstPackets.push_back(CPacket(2, (BYTE*)&finfo, sizeof(finfo)));
+			count++;
 		} while (!_findnext(hfind, &fdata));
+		TRACE("server:count=%d\r\n",count);
 		FILEINFO finfo;
 		finfo.HasNext = FALSE;
-		lstPackets.push_back(CPacket(2, (BYTE*)&finfo, sizeof(finfo)));
+		//lstPackets.push_back(CPacket(2, (BYTE*)&finfo, sizeof(finfo)));
 
 		return 0;
 	}
@@ -196,7 +201,9 @@ protected:
 			} while (rlen >= 1024);
 			fclose(pFile);
 		}
-		lstPackets.push_back(CPacket(4, NULL, 0));
+		else {
+			lstPackets.push_back(CPacket(4, (BYTE*)&data, 8));
+		}
 		return 0;
 	}
 
