@@ -117,7 +117,6 @@ typedef struct file_info {
 	file_info() {
 		IsInvalid = FALSE;
 		IsDirectory = -1;
-		HasNext = TRUE;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
 	BOOL IsInvalid;         // «∑Ò”––ß

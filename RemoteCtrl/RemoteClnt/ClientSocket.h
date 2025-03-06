@@ -120,7 +120,6 @@ typedef struct file_info {
 	file_info() {
 		IsInvalid = FALSE;
 		IsDirectory = -1;
-		HasNext = TRUE;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
 	BOOL IsInvalid;         // «∑Ò”––ß
@@ -243,6 +242,7 @@ private:
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	~CClientSocket() {
 		closesocket(m_sock);

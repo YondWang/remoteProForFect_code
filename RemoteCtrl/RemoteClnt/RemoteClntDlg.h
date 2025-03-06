@@ -65,7 +65,7 @@ protected:
 	HICON m_hIcon;
 	CStatusDlg m_dlgStatus;
 
-	void LoadFIleCurrent();
+	void LoadFileCurrent();
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);

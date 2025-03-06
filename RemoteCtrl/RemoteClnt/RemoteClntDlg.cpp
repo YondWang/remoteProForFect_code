@@ -220,7 +220,7 @@ END_MESSAGE_MAP()
 
 // CRemoteClntDlg message handlers
 
-void CRemoteClntDlg::LoadFIleCurrent()
+void CRemoteClntDlg::LoadFileCurrent()
 {
 	HTREEITEM hTree = m_Tree.GetSelectedItem();
 	CString strPath = GetPath(hTree);
@@ -405,7 +405,7 @@ void CRemoteClntDlg::LoadFileInfo()
 	while (pInfo->HasNext) {
 		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
 		if (pInfo->IsDirectory) {
-			if ((CString(pInfo->szFileName) == ".") || (CString(pInfo->szFileName) == "..")) {
+			if (((pInfo->szFileName) == ".") || ((pInfo->szFileName) == "..")) {
 				int cmd = pClient->DealCommand();
 				TRACE("ack:%d\r\n", cmd);
 				if (cmd < 0) break;
@@ -423,7 +423,7 @@ void CRemoteClntDlg::LoadFileInfo()
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0) break;
 		pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
-
+		//pInfo = (PFILEINFO)pClient->getInstence()->GetPacket().strData.c_str();
 	}
 	//while (true) {
 	//	if (!pInfo) break; // 保护性检查，防止野指针
@@ -524,7 +524,7 @@ void CRemoteClntDlg::OnDeletefile()
 		AfxMessageBox("删除文件命令执行失败！！！");
 	}
 	AfxMessageBox("删除成功！！");
-	LoadFIleCurrent();
+	LoadFileCurrent();
 }
 
 
