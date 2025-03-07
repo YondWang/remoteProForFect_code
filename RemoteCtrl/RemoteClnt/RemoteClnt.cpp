@@ -5,7 +5,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "RemoteClnt.h"
-#include "RemoteClntDlg.h"
+#include "ClntController.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -70,10 +70,11 @@ BOOL CRemoteClntApp::InitInstance()
 	// TODO: You should modify this string to be something appropriate
 	// such as the name of your company or organization
 	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
-
-	CRemoteClntDlg dlg;
+	CClntController::getInstance()->InitController();
+	INT_PTR nResponse = CClntController::getInstance()->Invoke(m_pMainWnd);
+	/*CRemoteClntDlg dlg;
 	m_pMainWnd = &dlg;
-	INT_PTR nResponse = dlg.DoModal();
+	INT_PTR nResponse = dlg.DoModal();*/
 	if (nResponse == IDOK)
 	{
 		// TODO: Place code here to handle when the dialog is
