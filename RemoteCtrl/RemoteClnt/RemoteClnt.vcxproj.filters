@@ -45,6 +45,9 @@
     <ClInclude Include="ClntController.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="CTool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RemoteClnt.cpp">

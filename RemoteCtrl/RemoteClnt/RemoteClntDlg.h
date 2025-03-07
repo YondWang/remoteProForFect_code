@@ -39,33 +39,16 @@ private:
 	bool m_isClosed;	//监视是否结束
 
 private:
-	static void threadEntryForWatchData(void* arg);		//静态函数不能用this指针
-	void threadWatchData();								//成员函数可以
-
-	static void threadEntryDownFile(void* arg);
-	void threadDownFile();
-
+	void LoadFileCurrent();
+	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
-	void LoadFileInfo();
-	/*1 查看磁盘分区
-	2 查看指定目录下的文件
-	3 打开文件
-	4 下载文件
-	5 鼠标操作
-	6 发送屏幕内容
-	7 锁机
-	8 解锁
-	9 删除文件
-	2001 测试连接
-	ret: 命令号，小于0错误	*/
-	int SendCommandPack(int nCmd, bool bAutoClose = true, BYTE* pData = nullptr, size_t nLength = 0);
+	
 	// Implementation
 protected:
 	HICON m_hIcon;
 	CStatusDlg m_dlgStatus;
 
-	void LoadFileCurrent();
 	// Generated message map functions
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
@@ -87,7 +70,21 @@ public:
 	afx_msg void OnDeletefile();
 	afx_msg void OnRunfile();
 
+	/*1 查看磁盘分区
+	2 查看指定目录下的文件
+	3 打开文件
+	4 下载文件
+	5 鼠标操作
+	6 发送屏幕内容
+	7 锁机
+	8 解锁
+	9 删除文件
+	2001 测试连接
+	ret: 命令号，小于0错误	*/
 	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM LParam);
 	afx_msg void OnBnClickedBtnStartwatch();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
+
+	afx_msg void OnEnChangeEditport();
 };

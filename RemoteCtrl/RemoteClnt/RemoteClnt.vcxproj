@@ -185,6 +185,7 @@
   <ItemGroup>
     <ClInclude Include="ClientSocket.h" />
     <ClInclude Include="ClntController.h" />
+    <ClInclude Include="CTool.h" />
     <ClInclude Include="CWatchdialog.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
