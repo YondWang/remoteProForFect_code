@@ -85,7 +85,6 @@ BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD, &CRemoteClntDlg::OnDownloadFile)						//WM_COMMAND
 	ON_COMMAND(ID_DELETEFILE, &CRemoteClntDlg::OnDeletefile)						//WM_COMMAND
 	ON_COMMAND(ID_RUNFILE, &CRemoteClntDlg::OnRunfile)								//WM_COMMAND
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClntDlg::OnSendPacket)		//注册消息
 	ON_BN_CLICKED(IDC_BTN_STARTWATCH, &CRemoteClntDlg::OnBnClickedBtnStartwatch)	//WM_COMMAND
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClntDlg::OnIpnFieldchangedIpaddressServ)
@@ -155,7 +154,6 @@ BOOL CRemoteClntDlg::OnInitDialog()
 	UpdateData(FALSE);
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
-	m_isFull = false;
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -383,35 +381,6 @@ void CRemoteClntDlg::OnRunfile()
 	if (ret < 0) {
 		AfxMessageBox("打开文件命令执行失败！！！");
 	}
-}
-
-LRESULT CRemoteClntDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
-{
-	int ret = 0;
-	int cmd = wParam >> 1;
-	switch (cmd)
-	{
-	case 4:	{
-		CString strFile = (LPCSTR)lParam;
-		ret = CClntController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)LPCSTR(strFile), strFile.GetLength());	//定义自定义消息 响应函数
-	}
-		break;
-	case 5: {	//鼠标操作
-		ret = CClntController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-	}
-		break;
-	case 6:
-	case 7:
-	case 8: {
-		ret = CClntController::getInstance()->SendCommandPacket(cmd, wParam & 1);	//定义自定义消息 响应函数
-	}
-		break;
-	default:
-		ret = -1;
-		break;
-	}
-	
-	return ret;
 }
 
 

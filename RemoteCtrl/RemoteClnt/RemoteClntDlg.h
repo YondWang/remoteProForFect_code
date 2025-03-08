@@ -6,8 +6,6 @@
 #include "ClientSocket.h"
 #include "StatusDlg.h"
 
-#define WM_SEND_PACKET (WM_USER + 1)		//发送数据包的消息
-
 // CRemoteClntDlg dialog
 class CRemoteClntDlg : public CDialogEx
 {
@@ -24,18 +22,13 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 
 public:
-	bool isFull() const {
-		return m_isFull;
-	}
+	
 	CImage& getImage() {
 		return m_image;
 	}
-	void setImageStatus(bool isFull = false) {
-		m_isFull = isFull;
-	}
+	
 private:
 	CImage m_image;		//缓存
-	bool m_isFull;		//是否有数据		true有	false没有
 	bool m_isClosed;	//监视是否结束
 
 private:
@@ -81,7 +74,6 @@ public:
 	9 删除文件
 	2001 测试连接
 	ret: 命令号，小于0错误	*/
-	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM LParam);
 	afx_msg void OnBnClickedBtnStartwatch();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);

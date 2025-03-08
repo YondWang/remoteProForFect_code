@@ -136,6 +136,7 @@ public:
 	static CClientSocket* getInstence() {
 		if (m_instance == NULL) {
 			m_instance = new CClientSocket();
+			TRACE("CClntSocket size is %d\r\n", sizeof(m_instance));
 		}
 		return m_instance;
 	}
@@ -177,18 +178,20 @@ public:
 			return -2;
 		}
 		static size_t index = 0;
-		while (true) {
-			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			TRACE("recv Len : %d\r\n", len);
-			if ((len <= 0) && (index <= 0)) {
-				return -1;
-			}
-			index += len;
-			len = index;
-			m_packet = CPacket((BYTE*)buffer, len);
-			if (len > 0) {
-				memmove(buffer, buffer + len, index - len);
-				index -= len;
+		while (1)
+		{
+			size_t recv_len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
+			TRACE("[%d]  recv_len= %d\r\n", __LINE__, recv_len);
+			if ((recv_len <= 0) && (index <= 0)) return -1;
+			//Dump((BYTE*)Buffer, recv_len);
+			TRACE("recv_len = %d(0x%08X)  Index = %d(0x%08X)\r\n", recv_len, recv_len, index, index);
+			index += recv_len;
+			recv_len = index;
+			TRACE("recv_len = %d(0x%08X)  Index = %d(0x%08X)\r\n", recv_len, recv_len, index, index);
+			m_packet = CPacket((BYTE*)buffer, recv_len);
+			if (recv_len > 0) {
+				memmove(buffer, buffer + recv_len, index - recv_len);
+				index -= recv_len;
 				return m_packet.sCmd;
 			}
 		}
@@ -247,17 +250,19 @@ private:
 	}
 
 	CClientSocket() :
-		m_nIP(INADDR_ANY), m_nPort(0) 
+		m_nIP(INADDR_ANY), m_nPort(0) ,m_sock(INVALID_SOCKET)
 	{
+		m_sock = INVALID_SOCKET;
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境！检查网络设置"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
-		memset(m_buffer.data(), 0, BUFFER_SIZE);
+		memset(m_buffer.data(), 0, sizeof(m_buffer));
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
 
@@ -269,10 +274,12 @@ private:
 		return TRUE;
 	}
 	static void realseInstance() {
+		TRACE("clntSocket has called!\r\n");
 		if (m_instance != NULL) {
 			CClientSocket* tmp = m_instance;
 			m_instance = NULL;
 			delete tmp;
+			TRACE("clntSocket has released!\r\n");
 		}
 	}
 	static CClientSocket* m_instance;
