@@ -4,6 +4,8 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#include <list>
+#include <map>
 #define BUFFER_SIZE 4096000
 
 #pragma pack(push)
@@ -11,7 +13,7 @@
 class CPacket {
 public:
 	CPacket() : sHead(0), nLength(0), sCmd(0), sSum(0) {}
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent) {
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
@@ -26,6 +28,7 @@ public:
 		for (size_t j = 0; j < strData.size(); j++) {
 			sSum += BYTE(strData[j]) & 0xFF;
 		}
+		this->hEvent = hEvent;
 	}
 	CPacket(const CPacket& pack) {
 		sHead = pack.sHead;
@@ -33,8 +36,9 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
+		hEvent = pack.hEvent;
 	}
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize) : hEvent(INVALID_HANDLE_VALUE) {
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -101,7 +105,7 @@ public:
 	std::string strData;	//包数据
 	WORD sSum;				//和校验
 	//std::string strOut;		//整个包的数据
-
+	HANDLE hEvent;
 };
 #pragma pack(pop)
 typedef struct MouseEvent {
@@ -182,7 +186,7 @@ public:
 		{
 			size_t recv_len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
 			TRACE("[%d]  recv_len= %d\r\n", __LINE__, recv_len);
-			if ((recv_len <= 0) && (index <= 0)) return -1;
+			if (((int)recv_len <= 0) && ((int)index <= 0)) return -1;
 			//Dump((BYTE*)Buffer, recv_len);
 			TRACE("recv_len = %d(0x%08X)  Index = %d(0x%08X)\r\n", recv_len, recv_len, index, index);
 			index += recv_len;
@@ -238,6 +242,8 @@ public:
 private:
 	int m_nIP;
 	int m_nPort;
+	std::list<CPacket> m_lstSend;
+	std::map<HANDLE, std::list<CPacket>> m_mapAck;
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
@@ -265,6 +271,9 @@ private:
 		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
+
+	static void threadEntry(void* arg);
+	void threadFunc();
 
 	bool InitSockEnv() {
 		WSADATA data;
