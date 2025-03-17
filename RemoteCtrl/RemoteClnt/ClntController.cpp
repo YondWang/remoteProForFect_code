@@ -46,6 +46,7 @@ LRESULT CClntController::SendMessage(MSG msg)
 	MSGINFO info(msg);
 	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM) & msg, (LPARAM)hEvent);
 	WaitForSingleObject(hEvent, INFINITE);
+	CloseHandle(hEvent);
 	return info.result;
 }
 
@@ -60,6 +61,7 @@ int CClntController::SendCommandPacket(int nCmd, bool bAutoClose,
 		plstPack = &lstPacks;
 	}
 	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPack);
+	CloseHandle(hEvent);		//回收事件句柄，防止资源耗尽
 	if (plstPack->size() > 0) {
 		return plstPack->front().sCmd;
 	}
@@ -104,9 +106,10 @@ void CClntController::threadWatchScreen()
 			std::list<CPacket>lstPacks;
 			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
 			if (ret == 6) {
-				if (CTool::Bytes2Image(m_remoteDlg.getImage(),
+				if (CTool::Bytes2Image(m_watchDlg.getImage(),
 					lstPacks.front().strData) == 0) {
 					m_watchDlg.setImageStatus(true);
+					TRACE("成功设置图片！\r\n");
 				}
 				else {
 					TRACE("获取图片失败！ret = %d\r\n", ret);

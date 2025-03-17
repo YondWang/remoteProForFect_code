@@ -88,7 +88,7 @@ public:
 	int Size() {	//包数据大小
 		return nLength + 6;
 	}
-	const char* Data(std::string& strOut) const{
+	const char* Data(std::string& strOut) const {
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)(pData) = sHead; pData += 2;
@@ -202,26 +202,9 @@ public:
 		delete[]buffer;
 		return -2;
 	}
-	
-	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks) {
-		if (m_sock == INVALID_SOCKET) {
-			if (InitSocket() == false) return false;
-			_beginthread(&CClientSocket::threadEntry, 0, this);
-		}
-		m_lstSend.push_back(pack);
-		WaitForSingleObject(pack.hEvent, INFINITE);
-		std::map<HANDLE, std::list<CPacket>>::iterator it;
-		it = m_mapAck.find(pack.hEvent);
-		if (it != m_mapAck.end()) {
-			std::list<CPacket>::iterator i;
-			for (i = it->second.begin(); i != it->second.end(); i++) {
-				lstPacks.push_back(*i);
-			}
-			m_mapAck.erase(it);
-			return true;
-		}
-		return false;
-	}
+
+	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks,
+		bool isAutoClosed = true);
 
 	bool GetFilePath(std::string& strPath) {
 		if (m_packet.sCmd >= 2 && m_packet.sCmd <= 3) {
@@ -253,23 +236,26 @@ public:
 		}
 	}
 private:
+	bool m_bAutoClose;
 	int m_nIP;
 	int m_nPort;
 	std::list<CPacket> m_lstSend;
 	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, bool> m_mapAutoClosed;
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
 	CClientSocket& operator=(const CClientSocket& ss) {}
-	CClientSocket(const CClientSocket& ss) 
+	CClientSocket(const CClientSocket& ss)
 	{
+		m_bAutoClose = ss.m_bAutoClose;
 		m_sock = ss.m_sock;
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
 	}
 
 	CClientSocket() :
-		m_nIP(INADDR_ANY), m_nPort(0) ,m_sock(INVALID_SOCKET)
+		m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true)
 	{
 		m_sock = INVALID_SOCKET;
 		if (InitSockEnv() == FALSE) {

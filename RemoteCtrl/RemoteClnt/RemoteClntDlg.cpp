@@ -112,7 +112,7 @@ void CRemoteClntDlg::LoadFileCurrent()
 		if (cmd < 0) break;
 		pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
 	}
-	CClntController::getInstance()->CloseSocket();
+	//CClntController::getInstance()->CloseSocket();
 }
 
 BOOL CRemoteClntDlg::OnInitDialog()
@@ -299,7 +299,7 @@ void CRemoteClntDlg::LoadFileInfo()
 		//pInfo = (PFILEINFO)pClient->getInstence()->GetPacket().strData.c_str();
 	}
 	
-	CClntController::getInstance()->CloseSocket();
+	//CClntController::getInstance()->CloseSocket();
 }
 
 void CRemoteClntDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)

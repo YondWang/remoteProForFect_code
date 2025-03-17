@@ -22,13 +22,8 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 
 public:
-	
-	CImage& getImage() {
-		return m_image;
-	}
-	
+
 private:
-	CImage m_image;		//ª∫¥Ê
 	bool m_isClosed;	//º‡ ” «∑ÒΩ· ¯
 
 private:

@@ -19,6 +19,7 @@ public:
 public:
 	int m_nObjWidth;
 	int m_nObjHeight;
+	CImage m_image;
 protected:
 	//是否有数据 true有 false没有
 	bool m_isFull;
@@ -27,6 +28,9 @@ protected:
 	
 	DECLARE_MESSAGE_MAP()
 public:
+	CImage& getImage() {
+		return m_image;
+	}
 	bool isFull() const {
 		return m_isFull;
 	}
