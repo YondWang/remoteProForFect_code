@@ -60,7 +60,7 @@ int CClntController::SendCommandPacket(int nCmd, bool bAutoClose,
 	if (plstPack == NULL) {
 		plstPack = &lstPacks;
 	}
-	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPack);
+	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPack, bAutoClose);
 	CloseHandle(hEvent);		//回收事件句柄，防止资源耗尽
 	if (plstPack->size() > 0) {
 		return plstPack->front().sCmd;
@@ -100,7 +100,7 @@ void CClntController::StartWatchScreen()
 
 void CClntController::threadWatchScreen()
 {
-	Sleep(50);
+	Sleep(15);
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {
 			std::list<CPacket>lstPacks;

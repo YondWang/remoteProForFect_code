@@ -21,21 +21,53 @@ std::string GetErrInfo(int wsaErrCode)
 	return ret;
 }
 
+inline bool CClientSocket::InitSocket() {
+	if (m_sock != INVALID_SOCKET) CloseSocket();
+	m_sock = socket(PF_INET, SOCK_STREAM, 0);
+	if (m_sock == -1) return false;
+	//TODO:校验
+	sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	TRACE("addr %08X nIP %08X\r\n", inet_addr("127.0.0.1"), m_nIP);
+	serv_addr.sin_addr.s_addr = htonl(m_nIP);
+	serv_addr.sin_port = htons(m_nPort);
+	TRACE("m_sock = %d\r\n", m_sock);
+	if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
+		AfxMessageBox(_T("指定的ip地址不存在！！"));
+		return false;
+	}
+
+	int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
+	if (ret == -1) {
+		AfxMessageBox(_T("连接失败，请检查网络"));
+		TRACE("连接失败，%d %s\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
+		return false;
+	}
+
+	return true;
+}
+
 bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks,
 	bool isAutoClosed)
 {
-	if (m_sock == INVALID_SOCKET) {
+	if (m_sock == INVALID_SOCKET && m_hThread == INVALID_HANDLE_VALUE) {
 		//if (InitSocket() == false) return false;
-		_beginthread(&CClientSocket::threadEntry, 0, this);
+		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
+		TRACE("start thread\r\n");
 	}
-	auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>>(pack.hEvent, lstPacks));
+	m_lock.lock();
+	auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.hEvent, lstPacks));
 	m_mapAutoClosed.insert(std::pair<HANDLE, bool>(pack.hEvent, isAutoClosed));
-	std::map<HANDLE, std::list<CPacket>>::iterator it;
-	it = m_mapAck.find(pack.hEvent);
 	m_lstSend.push_back(pack);
+	m_lock.unlock();
 	WaitForSingleObject(pack.hEvent, INFINITE);
+	std::map<HANDLE, std::list<CPacket>&>::iterator it;
+	it = m_mapAck.find(pack.hEvent);
 	if (it != m_mapAck.end()) {
+		m_lock.lock();
 		m_mapAck.erase(it);
+		m_lock.unlock();
 		return true;
 	}
 	return false;
@@ -67,38 +99,48 @@ void CClientSocket::threadFunc()
 	while (m_sock != INVALID_SOCKET) {
 		if (m_lstSend.size() > 0) {
 			TRACE("lst send size:%d\r\n", m_lstSend.size());
+			m_lock.lock();
 			CPacket& head = m_lstSend.front();
+			m_lock.unlock();
 			if (Send(head) == false) {
 				TRACE("发送失败");
 				continue;
 			}
-			std::map<HANDLE, std::list<CPacket>>::iterator it;
+			std::map<HANDLE, std::list<CPacket>&>::iterator it;
 			it = m_mapAck.find(head.hEvent);
-			std::map<HANDLE, bool>::iterator it0 = m_mapAutoClosed.find(head.hEvent);
-			do {
-				int recv_len = recv(m_sock, pBuffer, BUFFER_SIZE - index, 0);
-				if (recv_len > 0 || index > 0) {
-					index += recv_len;
-					size_t size = (size_t)index;
-					CPacket pack((BYTE*)pBuffer, size);
-					if (size > 0) {	//文件夹信息获取，文件信息可能产生问题
-						pack.hEvent = head.hEvent;
-						it->second.push_back(pack);
-						memmove(pBuffer, pBuffer + size, index - size);
-						index -= size;
-						if (it0->second) {
-							SetEvent(head.hEvent);
+			if (it != m_mapAck.end()) {
+				std::map<HANDLE, bool>::iterator it0 = m_mapAutoClosed.find(head.hEvent);
+				do {
+					int recv_len = recv(m_sock, pBuffer, BUFFER_SIZE - index, 0);
+					if ((recv_len > 0) || (index > 0)) {
+						index += recv_len;
+						size_t size = (size_t)index;
+						CPacket pack((BYTE*)pBuffer, size);
+						if (size > 0) {	//文件夹信息获取，文件信息可能产生问题
+							pack.hEvent = head.hEvent;
+							it->second.push_back(pack);
+							memmove(pBuffer, pBuffer + size, index - size);
+							index -= size;
+							if (it0->second) {
+								SetEvent(head.hEvent);
+								break;
+							}
 						}
 					}
-				}
-				else if (recv_len <= 0 && index <= 0) {
-					CloseSocket();
-					SetEvent(head.hEvent);	//等到服务器关闭命令之后，再通知事情完成
-				}
-			} while (it0->second == false);
+					else if (recv_len <= 0 && index <= 0) {
+						CloseSocket();
+						SetEvent(head.hEvent);	//等到服务器关闭命令之后，再通知事情完成
+						m_mapAutoClosed.erase(it0);
+						break;
+					}
+				} while (it0->second == false);
+			}
+			m_lock.lock();
 			m_lstSend.pop_front();
-			InitSocket();
+			m_lock.unlock();
+			if (InitSocket() == false) InitSocket();
 		}
+		Sleep(1);
 	}
 	CloseSocket();
 }

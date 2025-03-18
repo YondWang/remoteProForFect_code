@@ -104,7 +104,7 @@ void CRemoteClntDlg::LoadFileCurrent()
 	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
 	while (pInfo->HasNext) {
 		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
-		if (pInfo->IsDirectory) {
+		if (!pInfo->IsDirectory) {
 			m_List.InsertItem(0, pInfo->szFileName);
 		}
 		int cmd = CClntController::getInstance()->DealCommand();
@@ -146,8 +146,8 @@ BOOL CRemoteClntDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 	UpdateData();
-	//m_server_address = 0xC0A88B84;	//192.168.139.132
-	m_server_address = 0x7F000001;		//127.0.0.1
+	m_server_address = 0xC0A88B84;	//192.168.139.132
+	//m_server_address = 0x7F000001;		//127.0.0.1
 	m_nPort = _T(PORT_NUM);
 	CClntController* pController = CClntController::getInstance();
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
@@ -214,13 +214,14 @@ void CRemoteClntDlg::OnBnClickedBtnTest()
 
 void CRemoteClntDlg::OnBnClickedBtnFileinfo()
 {
-	int ret = CClntController::getInstance()->SendCommandPacket(1);
+	std::list<CPacket> lstPackets;
+	int ret = CClntController::getInstance()->SendCommandPacket(1, true, NULL, 0, &lstPackets);
 	if (ret == -1) {
 		AfxMessageBox(_T("命令处理失败！！！\r\n"));
 		return;
 	}
-	CClientSocket* pClient = CClientSocket::getInstence();
-	std::string drivers = pClient->GetPacket().strData;
+	CPacket& head = lstPackets.front();
+	std::string drivers = head.strData;
 	std::string dr;
 	m_Tree.DeleteAllItems();
 	for (size_t i = 0; i < drivers.size(); i++) {		//取得驱动信息
@@ -273,33 +274,29 @@ void CRemoteClntDlg::LoadFileInfo()
 	DeleteTreeChildrenItem(hTreeSelected);
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
-	int nCmd = CClntController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
-	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
-	while (pInfo->HasNext) {
-		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
-		if (pInfo->IsDirectory) {
-			if (((pInfo->szFileName) == ".") || ((pInfo->szFileName) == "..")) {
-				int cmd = CClntController::getInstance()->DealCommand();
-				TRACE("ack:%d\r\n", cmd);
-				if (cmd < 0) break;
-				pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
-				continue;
+	std::list<CPacket> lstPackets;
+	int nCmd = CClntController::getInstance()->SendCommandPacket(2, true, (BYTE*)(LPCTSTR)strPath, 
+		strPath.GetLength(), &lstPackets);
+	if (lstPackets.size() > 0) {
+		std::list<CPacket>::iterator it = lstPackets.begin();
+		for (; it != lstPackets.end(); it++) {
+			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
+			if (pInfo->HasNext == FALSE) continue;
+			if (pInfo->IsDirectory) {
+				if (((pInfo->szFileName) == ".") || ((pInfo->szFileName) == "..")) {
+					continue;
+				}
+				HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+				m_Tree.InsertItem(" ", hTemp, TVI_LAST);
+				TRACE("DirItemAdded!:%s\r\n", pInfo->szFileName);
 			}
-			HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-			m_Tree.InsertItem(" ", hTemp, TVI_LAST);
+			else {
+				m_List.InsertItem(0, pInfo->szFileName);
+				TRACE("ListItemAdded!:%s\r\n", pInfo->szFileName);
+			}
 		}
-		else {
-			m_List.InsertItem(0, pInfo->szFileName);
-		}
-
-		int cmd = CClntController::getInstance()->DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (cmd < 0) break;
-		pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
-		//pInfo = (PFILEINFO)pClient->getInstence()->GetPacket().strData.c_str();
 	}
 	
-	//CClntController::getInstance()->CloseSocket();
 }
 
 void CRemoteClntDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)

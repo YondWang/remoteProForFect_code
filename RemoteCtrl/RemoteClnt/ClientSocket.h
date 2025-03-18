@@ -6,6 +6,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <mutex>
 #define BUFFER_SIZE 4096000
 
 #pragma pack(push)
@@ -144,32 +145,7 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSocket() {
-		if (m_sock != INVALID_SOCKET) CloseSocket();
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (m_sock == -1) return false;
-		//TODO:校验
-		sockaddr_in serv_addr;
-		memset(&serv_addr, 0, sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		TRACE("addr %08X nIP %08X\r\n", inet_addr("127.0.0.1"), m_nIP);
-		serv_addr.sin_addr.s_addr = htonl(m_nIP);
-		serv_addr.sin_port = htons(m_nPort);
-		TRACE("m_sock = %d\r\n", m_sock);
-		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-			AfxMessageBox(_T("指定的ip地址不存在！！"));
-			return false;
-		}
-
-		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
-		if (ret == -1) {
-			AfxMessageBox(_T("连接失败，请检查网络"));
-			TRACE("连接失败，%d %s\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
-			return false;
-		}
-
-		return true;
-	}
+	bool InitSocket();
 
 	int DealCommand() {
 		if (m_sock == -1) return -1;
@@ -236,11 +212,13 @@ public:
 		}
 	}
 private:
+	HANDLE m_hThread;
 	bool m_bAutoClose;
+	std::mutex m_lock;
 	int m_nIP;
 	int m_nPort;
 	std::list<CPacket> m_lstSend;
-	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
 	std::map<HANDLE, bool> m_mapAutoClosed;
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
@@ -255,7 +233,8 @@ private:
 	}
 
 	CClientSocket() :
-		m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true)
+		m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true), 
+		m_hThread(INVALID_HANDLE_VALUE)
 	{
 		m_sock = INVALID_SOCKET;
 		if (InitSockEnv() == FALSE) {
