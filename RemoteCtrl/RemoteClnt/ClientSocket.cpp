@@ -81,6 +81,23 @@ bool CClientSocket::Send(const CPacket& pack)
 	return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
 }
 
+void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
+{//定义一个消息数据结构(数据长度, 模式) 回调消息的数据结构（HWND MESSAGE)
+	if (InitSocket() == true) {
+		int ret = send(m_sock, (char*)wParam, (int)lParam, 0);
+		if (ret > 0) {
+
+		}
+		else {
+			CloseSocket();
+			//网络终止处理
+		}
+	}
+	else {
+		//TODO:erro handle
+	}
+}
+
 void CClientSocket::threadEntry(void* arg)
 {
 	CClientSocket* thiz = (CClientSocket*)arg;
@@ -112,6 +129,7 @@ void CClientSocket::threadFunc()
 				std::map<HANDLE, bool>::iterator it0 = m_mapAutoClosed.find(head.hEvent);
 				do {
 					int recv_len = recv(m_sock, pBuffer, BUFFER_SIZE - index, 0);
+					TRACE("recv %d %d\r\n", recv_len, index);
 					if ((recv_len > 0) || (index > 0)) {
 						index += recv_len;
 						size_t size = (size_t)index;
@@ -130,17 +148,35 @@ void CClientSocket::threadFunc()
 					else if (recv_len <= 0 && index <= 0) {
 						CloseSocket();
 						SetEvent(head.hEvent);	//等到服务器关闭命令之后，再通知事情完成
-						m_mapAutoClosed.erase(it0);
+						if (it0 != m_mapAutoClosed.end()) {
+							TRACE("SetEvent %d %d\r\n", head.sCmd, it0->second);
+						}
+						else {
+							TRACE("异常情况，没有对应的pair\r\n");
+						}
 						break;
 					}
 				} while (it0->second == false);
 			}
 			m_lock.lock();
 			m_lstSend.pop_front();
+			m_mapAutoClosed.erase(head.hEvent);
 			m_lock.unlock();
 			if (InitSocket() == false) InitSocket();
 		}
 		Sleep(1);
 	}
 	CloseSocket();
+}
+
+void CClientSocket::threadFunc2()
+{
+	MSG msg;
+	while (::GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
+			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+		}
+	}
 }

@@ -9,7 +9,7 @@ CClntController* CClntController::getInstance()
 {
 	if (m_instance == NULL) {
 		m_instance = new CClntController();
-		TRACE("CClntController size is %d\r\n", sizeof(m_instance));
+		TRACE("CClntController size is %d\r\n", sizeof(*m_instance));
 		struct { UINT nMsg;
 		MSGFUNC func;
 		}MsgFuncs[] = {
