@@ -45,9 +45,13 @@ public:
 	8 解锁
 	9 删除文件
 	2001 测试连接
-	ret: 命令号，小于0错误	*/
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, 
-		BYTE* pData = nullptr, size_t nLength = 0, std::list<CPacket>* lstPacks = NULL);
+	ret: 状态，true是成功，false是失败*/
+	bool SendCommandPacket(HWND hWnd, 
+		int nCmd, 
+		bool bAutoClose = true, 
+		BYTE* pData = nullptr, 
+		size_t nLength = 0);
+
 	int GetImage(CImage& image) {
 		CClientSocket* pClnt = CClientSocket::getInstence();
 		return CTool::Bytes2Image(image, pClnt->GetPacket().strData);

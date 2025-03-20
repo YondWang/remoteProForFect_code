@@ -50,22 +50,11 @@ LRESULT CClntController::SendMessage(MSG msg)
 	return info.result;
 }
 
-int CClntController::SendCommandPacket(int nCmd, bool bAutoClose, 
-	BYTE* pData, size_t nLength, std::list<CPacket>* plstPack)
+bool CClntController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, 
+	BYTE* pData, size_t nLength)
 {
 	CClientSocket* pClient = CClientSocket::getInstence();
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	//TODO:不应该直接发送，而是投入队列
-	std::list<CPacket> lstPacks;
-	if (plstPack == NULL) {
-		plstPack = &lstPacks;
-	}
-	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPack, bAutoClose);
-	CloseHandle(hEvent);		//回收事件句柄，防止资源耗尽
-	if (plstPack->size() > 0) {
-		return plstPack->front().sCmd;
-	}
-	return -1;
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
 }
 
 int CClntController::DownFile(CString strPath)
@@ -104,16 +93,20 @@ void CClntController::threadWatchScreen()
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {
 			std::list<CPacket>lstPacks;
-			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
+			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0);
+			//TODO:添加消息响应函数WM_SEND_PACK_ACK
+			//TODO:控制发送频率
 			if (ret == 6) {
-				if (CTool::Bytes2Image(m_watchDlg.getImage(),
-					lstPacks.front().strData) == 0) {
+				if (CTool::Bytes2Image(m_watchDlg.getImage(), lstPacks.front().strData) == 0) {
 					m_watchDlg.setImageStatus(true);
 					TRACE("成功设置图片！\r\n");
 				}
 				else {
 					TRACE("获取图片失败！ret = %d\r\n", ret);
 				}
+			}
+			else {
+				TRACE("获取图片失败！！ ret = %d\r\n", ret);
 			}
 		}
 		Sleep(1);
@@ -138,7 +131,7 @@ void CClntController::threadDownloadFile()
 	}
 	CClientSocket* pClnt = CClientSocket::getInstence();
 	do {
-		SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
 		long long nLenth = *(long long*)pClnt->GetPacket().strData.c_str();
 		if (nLenth == 0) {
 			AfxMessageBox("文件长度为0，或无法读取文件！");

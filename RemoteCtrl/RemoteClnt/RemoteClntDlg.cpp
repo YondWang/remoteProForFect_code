@@ -100,7 +100,7 @@ void CRemoteClntDlg::LoadFileCurrent()
 	CString strPath = GetPath(hTree);
 	
 	m_List.DeleteAllItems();
-	int nCmd = CClntController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+	int nCmd = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
 	while (pInfo->HasNext) {
 		TRACE("[%s] is dir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
@@ -208,14 +208,14 @@ HCURSOR CRemoteClntDlg::OnQueryDragIcon()
 
 void CRemoteClntDlg::OnBnClickedBtnTest()
 {
-	CClntController::getInstance()->SendCommandPacket(2001);
+	CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2001);
 }
 
 
 void CRemoteClntDlg::OnBnClickedBtnFileinfo()
 {
 	std::list<CPacket> lstPackets;
-	int ret = CClntController::getInstance()->SendCommandPacket(1, true, NULL, 0, &lstPackets);
+	int ret = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1, true, NULL, 0);
 	if (ret == -1) {
 		AfxMessageBox(_T("命令处理失败！！！\r\n"));
 		return;
@@ -275,8 +275,8 @@ void CRemoteClntDlg::LoadFileInfo()
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
 	std::list<CPacket> lstPackets;
-	int nCmd = CClntController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, 
-		strPath.GetLength(), &lstPackets);
+	int nCmd = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath,
+		strPath.GetLength());
 	if (lstPackets.size() > 0) {
 		TRACE("lstPackets.size = %d\r\n", lstPackets.size());
 		std::list<CPacket>::iterator it = lstPackets.begin();
@@ -358,7 +358,7 @@ void CRemoteClntDlg::OnDeletefile()
 	CString strFile = m_List.GetItemText(nSelected, 0);
 
 	strFile = strPath + strFile;
-	int ret = CClntController::getInstance()->SendCommandPacket(9, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	int ret = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 9, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	if (ret < 0) {
 		AfxMessageBox("删除文件命令执行失败！！！");
 	}
@@ -375,7 +375,7 @@ void CRemoteClntDlg::OnRunfile()
 	CString strFile = m_List.GetItemText(nSelected, 0);
 
 	strFile = strPath + strFile;
-	int ret = CClntController::getInstance()->SendCommandPacket(3, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	int ret = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 3, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	if (ret < 0) {
 		AfxMessageBox("打开文件命令执行失败！！！");
 	}

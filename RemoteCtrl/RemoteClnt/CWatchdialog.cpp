@@ -115,7 +115,7 @@ void CWatchdialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;		//LBTN
 		event.nAction = 1;		//DBCLK
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*) & event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*) & event, sizeof(event));
 	}
 	CDialog::OnLButtonDblClk(nFlags, point);
 }
@@ -130,7 +130,7 @@ void CWatchdialog::OnLButtonDown(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;		//LBTN
 		event.nAction = 2;		//
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 		/*CClientSocket* pClnt = CClientSocket::getInstence();
 		CPacket pack(5, (BYTE*)&event, sizeof(event));
@@ -149,7 +149,7 @@ void CWatchdialog::OnLButtonUp(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 0;		//LBTN
 		event.nAction = 3;		//DBCLK
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 	CDialog::OnLButtonUp(nFlags, point);
@@ -165,7 +165,7 @@ void CWatchdialog::OnRButtonDblClk(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 1;		//RBTN
 		event.nAction = 1;		//DBCLK
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 	CDialog::OnRButtonDblClk(nFlags, point);
@@ -181,7 +181,7 @@ void CWatchdialog::OnRButtonDown(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 1;		//RBTN
 		event.nAction = 2;		//DOWN
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 	CDialog::OnRButtonDown(nFlags, point);
@@ -197,7 +197,7 @@ void CWatchdialog::OnRButtonUp(UINT nFlags, CPoint point)
 		event.ptXY = remote;
 		event.nButton = 1;
 		event.nAction = 3;
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 	CDialog::OnRButtonUp(nFlags, point);
@@ -216,7 +216,7 @@ void CWatchdialog::OnMouseMove(UINT nFlags, CPoint point)
 		/*CClientSocket* pClnt = CClientSocket::getInstence();
 		CPacket pack(5, (BYTE*)&event, sizeof(event));
 		pClnt->Send(pack);*/
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 	CDialog::OnMouseMove(nFlags, point);
@@ -234,7 +234,7 @@ void CWatchdialog::OnStnClickedWatch()
 		event.ptXY = remote;
 		event.nButton = 0;		//LBTN
 		event.nAction = 0; 		//CLCK
-		CClntController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(event));
+		CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 5, true, (BYTE*)&event, sizeof(event));
 
 	}
 }
@@ -250,12 +250,12 @@ void CWatchdialog::OnOK()
 void CWatchdialog::OnBnClickedBtnLock()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CClntController::getInstance()->SendCommandPacket(7);
+	CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 7);
 }
 
 
 void CWatchdialog::OnBnClickedBtnUnlock()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CClntController::getInstance()->SendCommandPacket(7);
+	CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 8);
 }
