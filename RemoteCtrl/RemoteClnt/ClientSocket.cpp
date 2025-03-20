@@ -143,9 +143,8 @@ bool CClientSocket::Send(const CPacket& pack)
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//定义一个消息数据结构(数据长度, 模式) 回调消息的数据结构（HWND MESSAGE)
 	PACKET_DATA data = *(PACKET_DATA*)wParam;
-	HWND hWnd = (HWND)lParam;
-
 	delete (PACKET_DATA*)wParam;
+	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {
 		int ret = send(m_sock, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
 		if (ret > 0) {
