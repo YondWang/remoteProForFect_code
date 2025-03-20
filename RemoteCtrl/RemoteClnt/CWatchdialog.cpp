@@ -118,6 +118,8 @@ LRESULT CWatchdialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 	else {
 		CPacket* pPacket = (CPacket*)wParam;
 		if (pPacket != NULL) {
+			CPacket head = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
 			switch (pPacket->sCmd)
 			{
 			case 6:
