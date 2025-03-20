@@ -43,6 +43,7 @@ BEGIN_MESSAGE_MAP(CWatchdialog, CDialog)
 	ON_STN_CLICKED(IDC_WATCH, &CWatchdialog::OnStnClickedWatch)
 	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchdialog::OnBnClickedBtnLock)
 	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchdialog::OnBnClickedBtnUnlock)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CWatchdialog::OnSendPackAck)
 END_MESSAGE_MAP()
 
 
@@ -77,7 +78,7 @@ BOOL CWatchdialog::OnInitDialog()
 	m_isFull = false;
 
 	// TODO:  在此添加额外的初始化
-	SetTimer(0, 45, NULL);
+	//SetTimer(0, 45, NULL);
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -87,7 +88,7 @@ BOOL CWatchdialog::OnInitDialog()
 void CWatchdialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	if (nIDEvent == 0) {
+	/*if (nIDEvent == 0) {
 		CClntController* pParent = CClntController::getInstance();
 		if (m_isFull) {
 			CRect rect;
@@ -102,9 +103,50 @@ void CWatchdialog::OnTimer(UINT_PTR nIDEvent)
 			setImageStatus();
 		}
 	}
-	CDialog::OnTimer(nIDEvent);
+	CDialog::OnTimer(nIDEvent);*/
 }
 
+
+LRESULT CWatchdialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
+{
+	if ((lParam == -1) || (lParam == -2)) {
+		//TODO:错误处理
+	}
+	else if (lParam == 1) {
+		//对方关闭了套接字
+	}
+	else {
+		CPacket* pPacket = (CPacket*)wParam;
+		if (pPacket != NULL) {
+			switch (pPacket->sCmd)
+			{
+			case 6:
+			{
+				if (m_isFull) {
+					CTool::Bytes2Image(m_image, pPacket->strData);
+					CRect rect;
+					m_picture.GetWindowRect(rect);
+					m_nObjWidth = m_image.GetWidth();
+					m_nObjHeight = m_image.GetHeight();
+
+					m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0,
+						rect.Width(), rect.Height(), SRCCOPY);
+					m_picture.InvalidateRect(NULL);
+					m_image.Destroy();
+					setImageStatus();
+				}
+				break;
+			}
+			case 5:
+			case 7:
+			case 8:
+			default:
+				break;
+			}
+		}
+	}
+	return 0;
+}
 
 void CWatchdialog::OnLButtonDblClk(UINT nFlags, CPoint point)
 {

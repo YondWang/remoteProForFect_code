@@ -51,10 +51,17 @@ LRESULT CClntController::SendMessage(MSG msg)
 }
 
 bool CClntController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, 
-	BYTE* pData, size_t nLength)
+	BYTE* pData, size_t nLength, WPARAM wParam)
 {
 	CClientSocket* pClient = CClientSocket::getInstence();
-	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose, wParam);
+}
+
+void CClntController::DownloadEnd()
+{
+	m_statusDlg.ShowWindow(SW_HIDE);
+	m_remoteDlg.EndWaitCursor();
+	m_remoteDlg.MessageBox(_T("下载完成！！"), _T("完成！！"));
 }
 
 int CClntController::DownFile(CString strPath)
@@ -64,10 +71,16 @@ int CClntController::DownFile(CString strPath)
 		m_strRemote = strPath;
 		m_strLocal = dlg.GetPathName();
 		CString strLocal = dlg.GetPathName();
-		m_hThreadDownload = (HANDLE)_beginthread(&CClntController::threadDownloadEntry, 0, this);
-		if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {
+		FILE* pFile = fopen(m_strLocal, "wb+");
+		if (pFile == NULL) {
+			AfxMessageBox(_T("本地没有权限保存该文件！或文件无法创建!"));
 			return -1;
 		}
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
+		//m_hThreadDownload = (HANDLE)_beginthread(&CClntController::threadDownloadEntry, 0, this);
+		/*if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {
+			return -1;
+		}*/
 		m_remoteDlg.BeginWaitCursor();
 		m_statusDlg.m_info.SetWindowText("命令正在执行中!!");
 		m_statusDlg.ShowWindow(SW_SHOW);
@@ -131,7 +144,7 @@ void CClntController::threadDownloadFile()
 	}
 	CClientSocket* pClnt = CClientSocket::getInstence();
 	do {
-		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
 		long long nLenth = *(long long*)pClnt->GetPacket().strData.c_str();
 		if (nLenth == 0) {
 			AfxMessageBox("文件长度为0，或无法读取文件！");

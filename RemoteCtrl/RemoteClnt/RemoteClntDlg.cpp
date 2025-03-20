@@ -24,15 +24,15 @@ class CAboutDlg : public CDialogEx
 public:
 	CAboutDlg();
 
-// Dialog Data
+	// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 
-// Implementation
+	// Implementation
 protected:
 	DECLARE_MESSAGE_MAP()
 public:
@@ -89,6 +89,7 @@ BEGIN_MESSAGE_MAP(CRemoteClntDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClntDlg::OnIpnFieldchangedIpaddressServ)
 	ON_EN_CHANGE(IDC_EDIT_port, &CRemoteClntDlg::OnEnChangeEditport)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CRemoteClntDlg::OnSendPackAck)
 END_MESSAGE_MAP()
 
 
@@ -98,7 +99,7 @@ void CRemoteClntDlg::LoadFileCurrent()
 {
 	HTREEITEM hTree = m_Tree.GetSelectedItem();
 	CString strPath = GetPath(hTree);
-	
+
 	m_List.DeleteAllItems();
 	int nCmd = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstence()->GetPacket().strData.c_str();
@@ -215,29 +216,10 @@ void CRemoteClntDlg::OnBnClickedBtnTest()
 void CRemoteClntDlg::OnBnClickedBtnFileinfo()
 {
 	std::list<CPacket> lstPackets;
-	int ret = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1, true, NULL, 0);
-	if (ret == -1) {
+	bool ret = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1, true, NULL, 0);
+	if (ret == 0) {
 		AfxMessageBox(_T("命令处理失败！！！\r\n"));
 		return;
-	}
-	CPacket& head = lstPackets.front();
-	std::string drivers = head.strData;
-	std::string dr;
-	m_Tree.DeleteAllItems();
-	for (size_t i = 0; i < drivers.size(); i++) {		//取得驱动信息
-		if (drivers[i] == ',') {
-			dr += ":";
-			HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-			m_Tree.InsertItem(NULL , hTemp, TVI_LAST);
-			dr.clear();
-			continue;
-		}
-		dr += drivers[i];
-	}
-	if (dr.size() > 0) {
-		dr += ':';
-		HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-		m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
 	}
 }
 
@@ -276,7 +258,7 @@ void CRemoteClntDlg::LoadFileInfo()
 	CString strPath = GetPath(hTreeSelected);
 	std::list<CPacket> lstPackets;
 	int nCmd = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath,
-		strPath.GetLength());
+		strPath.GetLength(), (WPARAM)hTreeSelected);
 	if (lstPackets.size() > 0) {
 		TRACE("lstPackets.size = %d\r\n", lstPackets.size());
 		std::list<CPacket>::iterator it = lstPackets.begin();
@@ -297,7 +279,7 @@ void CRemoteClntDlg::LoadFileInfo()
 			}
 		}
 	}
-	
+
 }
 
 void CRemoteClntDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
@@ -413,4 +395,102 @@ void CRemoteClntDlg::OnEnChangeEditport()
 	UpdateData();
 	CClntController* pController = CClntController::getInstance();
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
+}
+
+LRESULT CRemoteClntDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
+{
+	if ((lParam == -1) || (lParam == -2)) {
+		//TODO:错误处理
+	}
+	else if (lParam == 1) {
+		//对方关闭了套接字
+	}
+	else {
+		CPacket* pPacket = (CPacket*)wParam;
+		if (pPacket != NULL) {
+			CPacket& head = *pPacket;
+
+			switch (pPacket->sCmd)
+			{
+			case 1:	//获取驱动信息
+			{
+				std::string drivers = head.strData;
+				std::string dr;
+				m_Tree.DeleteAllItems();
+				for (size_t i = 0; i < drivers.size(); i++) {		//取得驱动信息
+					if (drivers[i] == ',') {
+						dr += ":";
+						HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+						m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
+						dr.clear();
+						continue;
+					}
+					dr += drivers[i];
+				}
+				if (dr.size() > 0) {
+					dr += ":";
+					HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+					m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
+				}
+				break;
+			}
+			case 2:	//获取文件信息
+			{
+				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
+				if (pInfo->HasNext == FALSE) break;
+				if (pInfo->IsDirectory) {
+					if ((pInfo->szFileName == ".") || (pInfo->szFileName == "..")) {
+						break;
+					}
+					HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
+					m_Tree.InsertItem("", hTemp, TVI_LAST);
+					TRACE("DirItemAdded!:%s\r\n", pInfo->szFileName);
+				}
+				else {
+					m_List.InsertItem(0, pInfo->szFileName);
+					TRACE("ListItemAdded!:%s\r\n", pInfo->szFileName);
+				}
+			}
+				break;
+			case 3:
+				TRACE("RUN FILE DONE!!\r\n");
+				break;
+			case 4:
+			{
+				static LONGLONG length = 0, index = 0;
+				if (length == 0) {
+					length = *(long long*)head.strData.c_str();
+					if (length == 0) {
+						AfxMessageBox("文件长度为0，或无法读取文件！");
+						CClntController::getInstance()->DownloadEnd();
+					}
+				}
+				else if ((length > 0) && (index >= length))
+				{
+					fclose((FILE*)lParam);
+					length = 0;
+					index = 0;
+					CClntController::getInstance()->DownloadEnd();
+				}
+				else {
+					FILE* pFile = (FILE*)lParam;
+					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
+					index += head.strData.size();
+				}
+			}
+			break;
+			case 9:
+				TRACE("DELETE FILE DONE!!\r\n");
+				break;
+			case 2001:
+				TRACE("TEST CONNECTION!\r\n");
+				break;
+			default:
+				TRACE("UNKNOW DATA RECEIVED!!:%d\r\n", head.sCmd);
+				break;
+			}
+		}
+	}
+
+	return 0;
 }
