@@ -34,7 +34,7 @@ public:
 
 			if (ret > 0) {
 				m_callback(m_arg, ret, lstPackets, m_packet);
-				if (lstPackets.size() > 0) {
+				while (lstPackets.size() > 0) {
 					Send(lstPackets.front());
 					lstPackets.pop_front();
 				}
@@ -54,7 +54,7 @@ public:
 			return -2;
 		}
 		//memset(buffer, 0, BUFFER_SIZE);
-		static size_t index = 0;
+		size_t index = 0;
 		while (1) {
 			size_t len = recv(m_clnt, buffer + index, BUFFER_SIZE - index, 0);
 			if ((len <= 0) && (index <= 0)) {

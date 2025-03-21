@@ -141,10 +141,12 @@ bool CClientSocket::Send(const CPacket& pack)
 }
 
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{//定义一个消息数据结构(数据长度, 模式) 回调消息的数据结构（HWND MESSAGE)
-	PACKET_DATA data = *(PACKET_DATA*)wParam;
-	delete (PACKET_DATA*)wParam;
+{//TODO:定义一个消息的数据结构(数据和数据长度，模式)  回调消息的数据结构(HWND))
+	PACKET_DATA data = *(PACKET_DATA*)wParam; //data是一个局部变量 先释放点，后面使用的时候就不存在内存泄漏的问题啦
+	delete (PACKET_DATA*)wParam;//
 	HWND hWnd = (HWND)lParam;
+	size_t nTemp = data.strData.size();
+	CPacket current((BYTE*)data.strData.c_str(), nTemp);
 	if (InitSocket() == true) {
 		int ret = send(m_sock, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
 		if (ret > 0) {
@@ -153,26 +155,28 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 			strBuffer.resize(BUFFER_SIZE);
 			char* pBuffer = (char*)strBuffer.c_str();
 			while (m_sock != INVALID_SOCKET) {
-				int length = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
-				if ((length > 0) || (index > 0)) {
+				int length = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0); //存在问题  length为负数
+				if (length > 0 || (index > 0)) {
 					index += (size_t)length;
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBuffer, nLen);
 					if (nLen > 0) {
+						TRACE("ack pack %d to hWnd %08X %d %d\r\n", pack.sCmd, hWnd, index, nLen);
+						TRACE("%04X\r\n", *(WORD*)pBuffer + nLen);
 						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), data.wParam);
+						//usleep(1);
 						if (data.nMode & CSM_AUTOCLOSE) {
 							CloseSocket();
 							return;
 						}
-
+						index -= nLen;
+						memmove(pBuffer, pBuffer + nLen, index);
 					}
-					index -= nLen;
-					memmove(pBuffer, pBuffer + index, nLen);
 				}
-				else {//TODO:对方关闭了套接字或网络设备异常
+				else { //TODO:对方关闭了套接字，或者网络设备异常
+					TRACE("recv failed length %d index %d cmd %d\r\n", length, index, current.sCmd);
 					CloseSocket();
-					::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, 1);
-
+					::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(current.sCmd, NULL, 0), 1);
 				}
 			}
 		}
@@ -183,7 +187,7 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 		}
 	}
 	else {
-		//TODO:erro handle
+		//TODO:错误处理
 		::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, -2);
 	}
 }

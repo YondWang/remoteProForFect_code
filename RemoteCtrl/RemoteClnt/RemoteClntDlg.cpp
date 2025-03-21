@@ -245,41 +245,21 @@ void CRemoteClntDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
 
 void CRemoteClntDlg::LoadFileInfo()
 {
+	CClntController* pClient = CClntController::getInstance();
 	CPoint ptMouse;
 	GetCursorPos(&ptMouse);
 	m_Tree.ScreenToClient(&ptMouse);
 	HTREEITEM hTreeSelected = m_Tree.HitTest(ptMouse, 0);
 	if (hTreeSelected == NULL)
 		return;
-	if (m_Tree.GetChildItem(hTreeSelected) == NULL)
+	if (m_Tree.GetChildItem(hTreeSelected) == NULL)  //文件没有子目录
 		return;
 	DeleteTreeChildrenItem(hTreeSelected);
 	m_List.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
-	std::list<CPacket> lstPackets;
-	int nCmd = CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath,
+	TRACE("hTreeSelected %08X\r\n", hTreeSelected);
+	CClntController::getInstance()->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath,
 		strPath.GetLength(), (WPARAM)hTreeSelected);
-	if (lstPackets.size() > 0) {
-		TRACE("lstPackets.size = %d\r\n", lstPackets.size());
-		std::list<CPacket>::iterator it = lstPackets.begin();
-		for (; it != lstPackets.end(); it++) {
-			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
-			if (pInfo->HasNext == FALSE) continue;
-			if (pInfo->IsDirectory) {
-				if ((pInfo->szFileName == ".") || (pInfo->szFileName == "..")) {
-					continue;
-				}
-				HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-				m_Tree.InsertItem("", hTemp, TVI_LAST);
-				TRACE("DirItemAdded!:%s\r\n", pInfo->szFileName);
-			}
-			else {
-				m_List.InsertItem(0, pInfo->szFileName);
-				TRACE("ListItemAdded!:%s\r\n", pInfo->szFileName);
-			}
-		}
-	}
-
 }
 
 void CRemoteClntDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
@@ -399,27 +379,26 @@ void CRemoteClntDlg::OnEnChangeEditport()
 
 LRESULT CRemoteClntDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 {
-	if ((lParam == -1) || (lParam == -2)) {
-		//TODO:错误处理
+	if (lParam == -1 || (lParam == -2)) {	//错误处理
+
 	}
-	else if (lParam == 1) {
-		//对方关闭了套接字
+	else if (lParam == 1) {	//一般是对方关闭了套接字
+
 	}
 	else {
 		if (wParam != NULL) {
 			CPacket head = *(CPacket*)wParam;
 			delete (CPacket*)wParam;
-			switch (head.sCmd)
-			{
+			switch (head.sCmd) {
 			case 1:	//获取驱动信息
 			{
-				std::string drivers = head.strData;
+				std::string drivers = head.strData;	// 得到服务端返回的驱动器列表
 				std::string dr;
-				m_Tree.DeleteAllItems();
-				for (size_t i = 0; i < drivers.size(); i++) {		//取得驱动信息
-					if (drivers[i] == ',') {
+				m_Tree.DeleteAllItems();	//清空树形控件中的所有项目
+				for (size_t i = 0; i < drivers.size(); i++) {
+					if (drivers[i] == ',') {	//解析逗号分隔的驱动器字符串
 						dr += ":";
-						HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+						HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);	//向树形控件中插入新的节点
 						m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
 						dr.clear();
 						continue;
@@ -428,31 +407,36 @@ LRESULT CRemoteClntDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 				}
 				if (dr.size() > 0) {
 					dr += ":";
-					HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+					HTREEITEM hTemp = m_Tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);	//向树形控件中插入新的节点
 					m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
 				}
-				break;
 			}
+			break;
 			case 2:	//获取文件信息
 			{
-				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
-				if (pInfo->HasNext == FALSE) break;
-				if (pInfo->IsDirectory) {
-					if ((pInfo->szFileName == ".") || (pInfo->szFileName == "..")) {
+				TRACE("客户端进行获取文件信息，更新文件列表和树形控件的逻辑\r\n");
+
+				const FILEINFO& pInfo = *(PFILEINFO)head.strData.c_str();
+
+				TRACE("hasNext %d, isDirectory %d, szFileName %s\r\n", pInfo.HasNext, pInfo.IsDirectory, pInfo.szFileName);
+				TRACE("hasNext %d, isDirectory %d, szFileName %s\r\n", pInfo.HasNext, pInfo.IsDirectory, pInfo.szFileName);
+				if (pInfo.HasNext == FALSE)	break;
+				if (pInfo.IsDirectory) {	//判断当前项是否为目录，是则在树控件中插入新节点，并递归调用函数
+					if (CString(pInfo.szFileName) == "." || CString(pInfo.szFileName) == "..") {	//跳过特殊目录
 						break;
 					}
-					HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
-					m_Tree.InsertItem("", hTemp, TVI_LAST);
-					TRACE("DirItemAdded!:%s\r\n", pInfo->szFileName);
+					TRACE("hTreeSelected %08X\r\n", lParam);
+					HTREEITEM hTemp = m_Tree.InsertItem(pInfo.szFileName, (HTREEITEM)lParam);	//在树控件中插入新节点
+					m_Tree.InsertItem("", hTemp, TVI_LAST);	//插入一个空节点，用于表示该目录下的文件
+					m_Tree.Expand((HTREEITEM)lParam, TVE_EXPAND);	//展开新节点
 				}
-				else {
-					m_List.InsertItem(0, pInfo->szFileName);
-					TRACE("ListItemAdded!:%s\r\n", pInfo->szFileName);
+				else {	//不是目录，则为文件，在列表控件中插入新项
+					m_List.InsertItem(0, pInfo.szFileName);
 				}
-			}
 				break;
+			}
 			case 3:
-				TRACE("RUN FILE DONE!!\r\n");
+				TRACE("打开文件，开始运行\r\n");
 				break;
 			case 4:
 			{
@@ -460,36 +444,34 @@ LRESULT CRemoteClntDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 				if (length == 0) {
 					length = *(long long*)head.strData.c_str();
 					if (length == 0) {
-						AfxMessageBox("文件长度为0，或无法读取文件！");
+						AfxMessageBox(_T("文件长度为0或无法读取文件!"));
 						CClntController::getInstance()->DownloadEnd();
 					}
-				}
-				else if ((length > 0) && (index >= length))
-				{
-					fclose((FILE*)lParam);
-					length = 0;
-					index = 0;
-					CClntController::getInstance()->DownloadEnd();
-				}
-				else {
-					FILE* pFile = (FILE*)lParam;
-					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
-					index += head.strData.size();
+					else if (length > 0 && (index >= length)) {
+						fclose((FILE*)lParam);
+						length = 0;
+						index = 0;
+						CClntController::getInstance()->DownloadEnd();
+					}
+					else {
+						FILE* pFile = (FILE*)lParam;
+						fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
+						index += head.strData.size();
+					}
 				}
 			}
 			break;
 			case 9:
-				TRACE("DELETE FILE DONE!!\r\n");
+				TRACE("文件删除完成\r\n");
 				break;
 			case 2001:
-				TRACE("TEST CONNECTION!\r\n");
+				TRACE("网络连接测试成功\r\n");
 				break;
 			default:
-				TRACE("UNKNOW DATA RECEIVED!!:%d\r\n", head.sCmd);
+				TRACE("客户端接收到未知命令 %d\r\n", head.sCmd);
 				break;
 			}
 		}
 	}
-
 	return 0;
 }

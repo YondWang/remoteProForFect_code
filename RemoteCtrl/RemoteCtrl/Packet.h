@@ -121,6 +121,6 @@ typedef struct file_info {
 	}
 	BOOL IsInvalid;         //是否有效
 	char szFileName[256];   //文件名
-	BOOL HasNext;           //0 No 1 Has
+	BOOL HasNext = 1;           //0 No 1 Has
 	BOOL IsDirectory;       //是否为目录， 0否1是
 }FILEINFO, * PFILEINFO;

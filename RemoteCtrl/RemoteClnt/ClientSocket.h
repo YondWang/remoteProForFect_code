@@ -124,12 +124,13 @@ typedef struct MouseEvent {
 typedef struct file_info {
 	file_info() {
 		IsInvalid = FALSE;
+		HasNext = TRUE;
 		IsDirectory = -1;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
 	BOOL IsInvalid;         //是否有效
 	char szFileName[256];   //文件名
-	BOOL HasNext;           //0 No 1 Has
+	BOOL HasNext ;           //0 No 1 Has
 	BOOL IsDirectory;       //是否为目录， 0否1是
 }FILEINFO, * PFILEINFO;
 
@@ -158,6 +159,7 @@ typedef struct PacketData{
 		if (this != &data) {
 			strData = data.strData;
 			nMode = data.nMode;
+			wParam = data.wParam;
 		}
 		return *this;
 	}
@@ -205,7 +207,7 @@ public:
 				return m_packet.sCmd;
 			}
 		}
-		delete[]buffer;
+		//delete[]buffer;
 		return -2;
 	}
 
