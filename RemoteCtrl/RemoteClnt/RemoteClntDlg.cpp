@@ -441,22 +441,30 @@ LRESULT CRemoteClntDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 			case 4:
 			{
 				static LONGLONG length = 0, index = 0;
+				TRACE("length %d index %d \r\n", length, index);
 				if (length == 0) {
 					length = *(long long*)head.strData.c_str();
 					if (length == 0) {
 						AfxMessageBox(_T("文件长度为0或无法读取文件!"));
 						CClntController::getInstance()->DownloadEnd();
 					}
-					else if (length > 0 && (index >= length)) {
+				}
+				else if (length > 0 && (index >= length)) {
+					fclose((FILE*)lParam);
+					length = 0;
+					index = 0;
+					CClntController::getInstance()->DownloadEnd();
+				}
+				else {
+					FILE* pFile = (FILE*)lParam;
+					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
+					index += head.strData.size();
+					TRACE("index = %d\r\n", index);
+					if (index >= length) {
 						fclose((FILE*)lParam);
 						length = 0;
 						index = 0;
 						CClntController::getInstance()->DownloadEnd();
-					}
-					else {
-						FILE* pFile = (FILE*)lParam;
-						fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
-						index += head.strData.size();
 					}
 				}
 			}
