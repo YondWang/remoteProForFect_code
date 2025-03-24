@@ -31,7 +31,12 @@ private:
 	bool m_isClosed;	//º‡ ” «∑ÒΩ· ¯
 
 private:
+	void DealCommand(WORD nCmd, const std::string& strData, LPARAM lParam);
+	void InitUIData();
 	void LoadFileCurrent();
+	void Str2Tree(const std::string& driver, CTreeCtrl& tree);
+	void UpdateFileInfo(const FILEINFO& finfo, HTREEITEM hParam);
+	void UpdateDownloadFile(const std::string& strData, FILE* pFile);
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
