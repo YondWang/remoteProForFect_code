@@ -24,6 +24,16 @@ using namespace std;
 //开机启动时权限是跟随启动用户的，如果两者权限不一致则会导致程序启动失败
 //开机启动对环境变量有影响，如果依赖dll，则可能启动失败
 //TODO:复制这些dll到system32或者sysWOW64下面
+
+/*
+改bug的思路
+0 观察现象
+1 确定范围
+2 分析错误可能性
+3 测试或者打日志，排查错误
+4 处理错误
+5 验证/长时间验证/多次验证/多条件的验证
+*/
 void WriteStartupDir(const CString& strPath) {
 	CString strCmd = GetCommandLine();
 	strCmd.Replace(_T("\""), _T(""));
@@ -88,8 +98,46 @@ void ChooseAutoInvoke() {
 	return;
 }
 
+void ShowError() {
+	LPWSTR lpMessageBuf = NULL;
+	//strerror(errno);	用于标准c语言库
+	FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER, 
+		NULL, GetLastError(), 
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+		(LPWSTR)&lpMessageBuf, 0, NULL);
+	OutputDebugString(lpMessageBuf);
+	LocalFree(lpMessageBuf);
+}
+
+bool IsAdmin() {
+	HANDLE hToken = NULL;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken) == FALSE) {
+		ShowError();
+		return false;
+	}
+	TOKEN_ELEVATION eve;
+	DWORD len = 0;
+	if (GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len) == FALSE) {
+		ShowError();
+		return false;
+	}
+	CloseHandle(hToken);
+	if (len == sizeof(eve)) {
+		return eve.TokenIsElevated;
+	}
+	TRACE(_T("length of tokeninformation is %d \r\n"), len);
+	return false;
+}
+
 int main()
 {
+	if (IsAdmin()) {
+		OutputDebugString(_T("Current Is Run As Administrator!\r\n"));
+	}
+	else {
+		OutputDebugString(_T("Current Is Run As Normal User!\r\n"));
+	}
 	int nRetCode = 0;
 
 	HMODULE hModule = ::GetModuleHandle(nullptr);
