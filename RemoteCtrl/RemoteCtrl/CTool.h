@@ -52,7 +52,7 @@ public:
 	
 
 	static bool WriteStartupDir(const CString& strPath) {	//通过修改开机启动文件夹来实现开机启动
-		TCHAR sPath[MAX_PATH] = {};
+		TCHAR sPath[MAX_PATH] = _T("");
 		GetModuleFileName(NULL, sPath, MAX_PATH);
 		return CopyFile(sPath, strPath, FALSE);
 	}
@@ -95,7 +95,7 @@ public:
 		//本地策略组 开启Administrator账户 禁止空密码只能登录本地控制台
 		STARTUPINFO si = {};
 		PROCESS_INFORMATION pi = {};
-		TCHAR sPath[MAX_PATH] = {};
+		TCHAR sPath[MAX_PATH] = _T("");
 		GetModuleFileName(NULL, sPath, MAX_PATH);
 		BOOL ret = CreateProcessWithLogonW(_T("Administrator"), NULL, NULL, LOGON_WITH_PROFILE, NULL, (LPWSTR)(LPCWSTR)sPath, CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &si, &pi);
 		if (!ret) {
