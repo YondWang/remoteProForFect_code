@@ -127,6 +127,41 @@ void func(void* arg) {
 	}
 }
 
+/*
+1 bug测试/功能测试
+2 关键因素测试（内存泄漏、运行的稳定性、条件性）
+3 压力测试（可靠性测试）
+4 性能测试
+*/
+void test() {//CYondQueue push性能高 pop性能仅1/4、
+	//list push性能比pop低
+	//printf("press any key to exit...\r\n");
+	CYondQueue<std::string> lstStrings;
+	ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64(), total = GetTickCount64();
+	while (GetTickCount64() - total <= 1000) {
+		//if (GetTickCount64() - tick0 > 10) 
+		{
+			lstStrings.PushBack("hello world");
+			tick0 = GetTickCount64();
+		}
+		//Sleep(1);
+	}
+	printf("Push done!size:%d\r\n", lstStrings.Size());
+	total = GetTickCount64();
+	while (GetTickCount64() - total <= 1000) {		//完成端口 把请求和实现分离开来
+		//if (GetTickCount64() - tick > 10) 
+		{
+			std::string str;
+			lstStrings.PopFront(str);
+			tick = GetTickCount64();
+			//printf("pop from queue:%s\r\n", str.c_str());
+		}
+		//Sleep(1);
+	}
+	printf("Pop done!size:%d\r\n", lstStrings.Size());
+	lstStrings.Clear();
+}
+
 int main()
 {
 	/*if (CTool::IsAdmin()) {
@@ -150,29 +185,8 @@ int main()
 	}*/
 
 	if (!CTool::Init()) return 1;
-
-	printf("press any key to exit...\r\n");
-	CYondQueue<std::string> lstStrings;
-	ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64();
-	while (_kbhit() == 0) {		//完成端口 把请求和实现分离开来
-		if (GetTickCount64() - tick0 > 1300) {
-			lstStrings.PushBack("hello world");
-			tick0 = GetTickCount64();
-		}
-		if (GetTickCount64() - tick > 2000) {
-			std::string str;
-			lstStrings.PopFront(str);
-			tick = GetTickCount64();
-			printf("pop from queue:%s\r\n", str.c_str());
-		}
-		Sleep(1);
-
+	for (int i = 0; i < 100; i++ ) {
+		test();
 	}
-	
-	printf("exit done!size:%d\r\n", lstStrings.Size());
-	lstStrings.Clear();
-	printf("exit done!size:%d\r\n", lstStrings.Size());
-	printf("exit done!\r\n");
-
 	return 0;
 }

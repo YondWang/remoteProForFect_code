@@ -35,7 +35,7 @@ public:
 		if (m_hCompeletionPort != NULL) {
 			m_hThread = (HANDLE)_beginthread(
 				&CYondQueue<T>::threadEntry, 
-				0, m_hCompeletionPort);
+				0, this);
 		}
 	}
 	~CYondQueue() {
@@ -43,8 +43,13 @@ public:
 		m_atom = true;
 		PostQueuedCompletionStatus(m_hCompeletionPort, 0, NULL, NULL);
 		WaitForSingleObject(m_hThread, INFINITE);
-		m_hCompeletionPort = NULL;
-		CloseHandle(m_hCompeletionPort);
+		if (m_hCompeletionPort != NULL) {
+			HANDLE hTemp = m_hCompeletionPort;
+			m_hCompeletionPort = NULL;
+			CloseHandle(hTemp);
+
+		}
+		//m_lstData.clear();
 	}
 	bool PushBack(const T& data) {
 		IocpParam* pParam = new IocpParam(YDPush, data);
@@ -160,7 +165,9 @@ private:
 			pParam = (PPARAM*)CompletionKey;
 			DealParam(pParam);
 		}
-		CloseHandle(m_hCompeletionPort);
+		HANDLE hTemp = m_hCompeletionPort;
+		m_hCompeletionPort = NULL;
+		CloseHandle(hTemp);
 	}
 private:
 	std::list<T> m_lstData;
