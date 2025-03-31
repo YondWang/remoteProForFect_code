@@ -12,6 +12,8 @@
 #include "Command.h"
 #include <conio.h>
 #include "CYondQueue.h"
+#include <MSWSock.h>
+#include "CYondServer.h"
 
 //#define INVOKE_PATH _T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe")
 #define INVOKE_PATH _T("C:\\Users\\yond_wang\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl.exe")
@@ -52,130 +54,27 @@ static bool ChooseAutoInvoke(const CString strPath) {
 	return true;
 }
 
-#define IOCP_LIST_PUSH 0
-#define IOCP_LIST_POP 2
-#define IOCP_LIST_EMPTY 
-enum {
-	IocpListEmpty,
-	IocpListPush,
-	IocpListPop
-};
-typedef struct IocpParam {
-	int nOperator;
-	std::string strData;
-	_beginthread_proc_type cbFunc;	//回调
-	IocpParam(int op, const char* sData, _beginthread_proc_type cb = NULL) {
-		nOperator = op;
-		strData = sData;
-		cbFunc = cb;
-	}
-	IocpParam() {
-		nOperator = -1;
-	}
-}IOCP_PARAM;
-
-void threadmain(HANDLE hIOCP) {
-	std::list<std::string> lstString;
-	DWORD dwTransferred = 0;
-	ULONG_PTR CompletionKey = 0;
-	OVERLAPPED* pOverlapped = NULL;
-	int count{}, count0{}, total{};
-	while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE)) {
-		if ((dwTransferred == 0) || (CompletionKey == NULL)) {
-			TRACE("thread is prepare to exit!\r\n");
-			break;
-		}
-		IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;
-		if (pParam->nOperator == IocpListPush) {
-			lstString.push_back(pParam->strData);
-			count++;
-		}
-		else if (pParam->nOperator == IocpListPop) {
-			std::string Str;
-			if (lstString.size() > 0) {
-				Str = lstString.front();
-				lstString.pop_front();
-			}
-			if (pParam->cbFunc) {
-				pParam->cbFunc(&Str);
-			}
-			count0++;
-		}
-		else if (pParam->nOperator == IocpListEmpty) {
-			lstString.clear();
-		}
-		delete pParam;
-		printf("total %d\r\n", ++total);
-	}
-	//lstString.clear();
-	printf("thread eixt count %d count0 %d\r\n", count, count0);
-}
-
-void threadQueueEntry(HANDLE hIOCP) {
-	threadmain(hIOCP);
-	_endthread();
-}
-
-void func(void* arg) {
-	std::string* pstr = (std::string*)arg;
-	if (pstr->size() > 0) {
-		printf("pop from list:%s\r\n", pstr->c_str());
-		//delete pstr;
-	}
-	else {
-		printf("list is empty, no data!\r\n");
-	}
-}
-
-/*
-1 bug测试/功能测试
-2 关键因素测试（内存泄漏、运行的稳定性、条件性）
-3 压力测试（可靠性测试）
-4 性能测试
-*/
-void test() {//CYondQueue push性能高 pop性能仅1/4、
-	//list push性能比pop低
-	//printf("press any key to exit...\r\n");
-	CYondQueue<std::string> lstStrings;
-	ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64(), total = GetTickCount64();
-	while (GetTickCount64() - total <= 1000) {
-		//if (GetTickCount64() - tick0 > 10) 
-		{
-			lstStrings.PushBack("hello world");
-			tick0 = GetTickCount64();
-		}
-		//Sleep(1);
-	}
-	printf("Push done!size:%d\r\n", lstStrings.Size());
-	total = GetTickCount64();
-	while (GetTickCount64() - total <= 1000) {		//完成端口 把请求和实现分离开来
-		//if (GetTickCount64() - tick > 10) 
-		{
-			std::string str;
-			lstStrings.PopFront(str);
-			tick = GetTickCount64();
-			//printf("pop from queue:%s\r\n", str.c_str());
-		}
-		//Sleep(1);
-	}
-	printf("Pop done!size:%d\r\n", lstStrings.Size());
-	lstStrings.Clear();
-}
-
+void iocp();
 int main()
 {
+
+
+	if (!CTool::Init()) return 1;
+
+	iocp();
+
 	/*if (CTool::IsAdmin()) {
-		if (!CTool::Init()) return 1;
-		if (ChooseAutoInvoke(INVOKE_PATH)) {
-			CCommand cmd;
-			int ret = CServerSocket::getInstence()->Run(&CCommand::RunCommand, &cmd);
-			switch (ret) {
-			case -1:
-				MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-				break;
-			case -2:
-				MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
-				break;
+	if (!CTool::Init()) return 1;
+	if (ChooseAutoInvoke(INVOKE_PATH)) {
+		CCommand cmd;
+		int ret = CServerSocket::getInstence()->Run(&CCommand::RunCommand, &cmd);
+		switch (ret) {
+		case -1:
+			MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+			break;
+		case -2:
+			MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
+			break;
 			}
 		}
 	}
@@ -184,9 +83,25 @@ int main()
 			return 1;
 	}*/
 
-	if (!CTool::Init()) return 1;
-	for (int i = 0; i < 100; i++ ) {
-		test();
-	}
 	return 0;
+}
+
+class COverlapped {
+public:
+	OVERLAPPED m_overlapped;
+	DWORD m_operator;
+	char m_buffer[4096];
+	COverlapped() {
+		m_operator = 0;
+		memset(&m_overlapped, 0, sizeof(m_overlapped));
+		memset(&m_buffer, 0, sizeof(m_buffer));
+	}
+};
+
+void iocp() {
+	CYondServer server;
+	server.StartService();
+	getchar();
+	
+
 }

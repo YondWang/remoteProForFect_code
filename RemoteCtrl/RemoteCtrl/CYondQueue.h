@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include "pch.h"
+#include <list>
 
 template<class T>
 class CYondQueue
