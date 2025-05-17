@@ -103,7 +103,7 @@ public:
 			MessageBox(NULL, sPath, _T("创建进程失败"), 0);
 			return false;
 		}
-		WaitForSingleObject(pi.hProcess, INFINITY);
+		WaitForSingleObject(pi.hProcess, (DWORD)INFINITY);
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 		return true;

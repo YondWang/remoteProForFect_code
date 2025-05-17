@@ -95,7 +95,7 @@ private:
 
 };
 
-class CYondClnt {
+class CYondClnt : public ThreadFuncBase{
 public:
 	CYondClnt();
 	~CYondClnt() {
@@ -114,13 +114,9 @@ public:
 	sockaddr_in* GetLoaclAddr() { return &m_laddr; }
 	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
 	size_t GetBufferSize() const { return m_buffer.size(); }
-	int Recv() {
-		int ret = recv(m_sock, m_buffer.data() + m_used, m_buffer.size() - m_used, 0);
-		if (ret <= 0) return -1;
-		m_used += (size_t)ret;
-		//TODO:解析数据
-		return 0;
-	}
+	int Recv();
+	int Send(void* buffer, size_t nSize);
+	int SendData(std::vector<char>& data);
 private:
 	SOCKET m_sock;
 	DWORD m_recived;
@@ -133,6 +129,7 @@ private:
 	sockaddr_in m_laddr;	//本地地址
 	sockaddr_in m_raddr;	//远程地址
 	bool m_isBusy;
+	YondSendQueue<std::vector<char>> m_vecSend;		//发送数据队列
 };
 
 class CYondServer :

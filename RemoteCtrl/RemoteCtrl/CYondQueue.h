@@ -2,6 +2,7 @@
 #include <atomic>
 #include "pch.h"
 #include <list>
+#include "CYondThread.h"
 
 template<class T>
 class CYondQueue
@@ -35,7 +36,7 @@ public:
 		m_hThread = INVALID_HANDLE_VALUE;
 		if (m_hCompeletionPort != NULL) {
 			m_hThread = (HANDLE)_beginthread(
-				&CYondQueue<T>::threadEntry, 
+				&CYondQueue<T>::threadEntry,
 				0, this);
 		}
 	}
@@ -62,7 +63,7 @@ public:
 		if (ret == false) delete pParam;
 		return ret;
 	}
-	bool PopFront(T& data) {
+	virtual bool PopFront(T& data) {
 		if (m_atom) return false;
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		IocpParam Param(YDPop, data, hEvent);
@@ -106,13 +107,13 @@ public:
 		if (ret == false) delete pParam;
 		return ret;
 	}
-private:
+protected:
 	static void threadEntry(void* arg) {
 		CYondQueue<T>* thiz = (CYondQueue<T>*)arg;
 		thiz->threadMain();
 		_endthread();
 	}
-	void DealParam(PPARAM* pParam){
+	void DealParam(PPARAM* pParam) {
 		switch (pParam->nOperator) {
 		case YDPush:
 			m_lstData.push_back(pParam->Data);
@@ -138,15 +139,15 @@ private:
 			break;
 		}
 	}
-	void threadMain() {
+	virtual void threadMain() {
 		PPARAM* pParam = NULL;
 		ULONG_PTR CompletionKey = 0;
 		OVERLAPPED* pOverlapped = NULL;
 		DWORD dwTransferred = 0;
 
-		while (GetQueuedCompletionStatus(m_hCompeletionPort, 
-			&dwTransferred, 
-			&CompletionKey, 
+		while (GetQueuedCompletionStatus(m_hCompeletionPort,
+			&dwTransferred,
+			&CompletionKey,
 			&pOverlapped, INFINITE)) {
 			if ((dwTransferred == 0) || (CompletionKey == NULL)) {
 				TRACE("thread is prepare to exit!\r\n");
@@ -170,10 +171,85 @@ private:
 		m_hCompeletionPort = NULL;
 		CloseHandle(hTemp);
 	}
-private:
+protected:
 	std::list<T> m_lstData;
 	HANDLE m_hCompeletionPort;
 	HANDLE m_hThread;
 	std::atomic<bool> m_atom;		//队列正在析构
 
 };
+
+
+template<class T>
+class YondSendQueue : public CYondQueue<T>, public ThreadFuncBase
+{
+public:
+	typedef int (ThreadFuncBase::* YDCALLBACK)(T& data);
+
+	YondSendQueue(ThreadFuncBase* obj, YDCALLBACK callback) :
+		CYondQueue<T>(), m_base(obj), m_callback(callback)
+	{
+		m_thread.Start();
+		m_thread.UpdateWorker(::ThreadWorker(this, (FUNCTYPE)&YondSendQueue<T>::threadTick));
+
+	}
+
+protected:
+	virtual bool PopFront(T& data) {
+		return false;
+	}
+	bool PopFront()
+	{
+		if (CYondQueue<T>::m_atom) return false;
+		typename CYondQueue<T>::IocpParam* Param = new typename CYondQueue<T>::IocpParam(CYondQueue<T>::YDPop, T());
+		if (CYondQueue<T>::m_atom) {
+			delete Param;
+			return false;
+		}
+		bool ret = PostQueuedCompletionStatus(CYondQueue<T>::m_hCompeletionPort, sizeof(*Param), (ULONG_PTR)&Param, NULL);
+		if (ret == false) {
+			delete Param;
+			return false;
+		}
+		return ret;
+	}
+	int threadTick() {
+		if (CYondQueue<T>::m_lstData.size() > 0) {
+			PopFront();
+		}
+		Sleep(1);
+		return 0;
+	}
+	void DealParam(typename CYondQueue<T>::PPARAM* pParam) {
+		switch (pParam->nOperator) {
+		case CYondQueue<T>::YDPush:
+			CYondQueue<T>::m_lstData.push_back(pParam->Data);
+			delete pParam;
+			break;
+		case CYondQueue<T>::YDPop:
+			if (CYondQueue<T>::m_lstData.size() > 0) {
+				pParam->Data = CYondQueue<T>::m_lstData.front();
+				if ((m_base->*m_callback())(pParam->Data) == 0)
+					CYondQueue<T>::m_lstData.pop_front();
+			}
+			delete pParam;
+			break;
+		case CYondQueue<T>::YDSize:
+			pParam->nOperator = CYondQueue<T>::m_lstData.size();
+			if (pParam->hEvent != NULL) SetEvent(pParam->hEvent);
+			break;
+		case CYondQueue<T>::YDClear:
+			CYondQueue<T>::m_lstData.clear();
+			delete pParam;
+			break;
+		default:
+			OutputDebugString(_T("unknown operation!\r\n"));
+			break;
+		}
+	}
+private:
+	ThreadFuncBase* m_base;
+	YDCALLBACK m_callback;
+	CYondThread m_thread;
+};
+typedef YondSendQueue<std::vector<char>>::YDCALLBACK SENDCALLBACK;

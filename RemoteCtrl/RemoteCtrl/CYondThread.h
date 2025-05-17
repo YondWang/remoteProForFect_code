@@ -41,6 +41,7 @@ class CYondThread
 public:
 	CYondThread() {
 		m_hThread = NULL;
+		m_bStatus = false;
 	}
 	~CYondThread() {
 		Stop();
@@ -82,11 +83,16 @@ public:
 
 	//true表示空闲，false表示已经分配工作
 	bool IsIdle() {
+		if (m_worker.load() == NULL) return true;
 		return !m_worker.load()->IsValid();
 	}
 private:
 	virtual void ThreadWorker() {
 		while (m_bStatus) {
+			if (m_worker.load() == NULL) {
+				Sleep(1);
+				continue;
+			}
 			::ThreadWorker worker = *m_worker.load();
 			if (m_worker.load()->IsValid()) {
 				int ret = worker();
@@ -180,3 +186,4 @@ private:
 	std::vector<CYondThread*> m_threads;
 	std::mutex m_lock;
 };
+
