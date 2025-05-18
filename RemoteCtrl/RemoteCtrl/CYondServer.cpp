@@ -23,7 +23,7 @@ RecvOverlapped<op>::RecvOverlapped() {
 template<YondOperator op>
 int AcceptOverlapped<op>::AcceptWorker() {
 	INT lLength = 0, rLength = 0;
-	if (*(LPDWORD)*m_clnt.get() > 0) {
+	if (m_clnt->GetBufferSize() > 0) {
 		GetAcceptExSockaddrs(
 			*m_clnt, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
 			(sockaddr**)m_clnt->GetLoaclAddr(), &lLength,
@@ -70,7 +70,7 @@ CYondClnt::CYondClnt() :
 	memset(&m_raddr, 0, sizeof(m_raddr));
 }
 
-void CYondClnt::SetOverlaped(PCLNT& ptr) {
+void CYondClnt::SetOverlaped(CYondClnt* ptr) {
 	m_overlapped->m_clnt = ptr;
 	m_recv->m_clnt = ptr;
 	m_send->m_clnt = ptr;

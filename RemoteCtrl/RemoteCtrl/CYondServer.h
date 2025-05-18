@@ -1,9 +1,9 @@
 #pragma once
 #include "CYondThread.h"
 #include "CYondQueue.h"
+#include "Command.h"
 #include <MSWSock.h>
 #include <map>
-#include <list>
 
 class CYondServer;
 class CYondClnt;
@@ -25,7 +25,7 @@ public:
 	std::vector<char> m_buffer;	//缓冲区
 	ThreadWorker m_worker;		//处理函数
 	CYondServer* m_server;		//服务器指针
-	PCLNT m_clnt;				//对应的客户端
+	CYondClnt* m_clnt;				//对应的客户端
 	WSABUF m_wsabuffer;
 
 };
@@ -39,13 +39,50 @@ typedef SendOverlapped<YSend> SENDOVERLAPPED;
 template<YondOperator>class ErrorOverlapped;
 typedef ErrorOverlapped<YError> ERROROVERLAPPED;
 
+class CYondClnt : public ThreadFuncBase {
+public:
+	CYondClnt();
+	~CYondClnt() {
+		closesocket(m_sock);
+	}
+
+	void SetOverlaped(CYondClnt* ptr);
+
+	operator SOCKET();
+	operator PVOID();
+	operator LPOVERLAPPED();
+	operator LPDWORD();
+	LPWSABUF RecvWSABuffer();
+	LPWSABUF SendWSABuffer();
+	DWORD& flags() { return m_flags; }
+	sockaddr_in* GetLoaclAddr() { return &m_laddr; }
+	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
+	size_t GetBufferSize() const { return m_buffer.size(); }
+	int Recv();
+	int Send(void* buffer, size_t nSize);
+	int SendData(std::vector<char>& data);
+private:
+	SOCKET m_sock;
+	DWORD m_recived;
+	DWORD m_flags;
+	std::shared_ptr<ACCEPTOVERLAPPED> m_overlapped;
+	std::shared_ptr<RECVOVERLAPPED>m_recv;
+	std::shared_ptr<SENDOVERLAPPED>m_send;
+	std::vector<char> m_buffer;
+	size_t m_used;			//已经使用的缓冲区大小
+	sockaddr_in m_laddr;	//本地地址
+	sockaddr_in m_raddr;	//远程地址
+	bool m_isBusy;
+	YondSendQueue<std::vector<char>> m_vecSend;		//发送数据队列
+};
+
 template<YondOperator>
 class AcceptOverlapped :public YondOverlapped, ThreadFuncBase
 {
 public:
 	AcceptOverlapped();
 	int AcceptWorker();
-	PCLNT m_clnt;
+	CYondClnt* m_clnt;
 private:
 
 };
@@ -95,42 +132,7 @@ private:
 
 };
 
-class CYondClnt : public ThreadFuncBase{
-public:
-	CYondClnt();
-	~CYondClnt() {
-		closesocket(m_sock);
-	}
 
-	void SetOverlaped(PCLNT& ptr);
-
-	operator SOCKET();
-	operator PVOID();
-	operator LPOVERLAPPED();
-	operator LPDWORD();
-	LPWSABUF RecvWSABuffer();
-	LPWSABUF SendWSABuffer();
-	DWORD& flags() { return m_flags; }
-	sockaddr_in* GetLoaclAddr() { return &m_laddr; }
-	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
-	size_t GetBufferSize() const { return m_buffer.size(); }
-	int Recv();
-	int Send(void* buffer, size_t nSize);
-	int SendData(std::vector<char>& data);
-private:
-	SOCKET m_sock;
-	DWORD m_recived;
-	DWORD m_flags;
-	std::shared_ptr<ACCEPTOVERLAPPED> m_overlapped;
-	std::shared_ptr<RECVOVERLAPPED>m_recv;
-	std::shared_ptr<SENDOVERLAPPED>m_send;
-	std::vector<char> m_buffer;
-	size_t m_used;			//已经使用的缓冲区大小
-	sockaddr_in m_laddr;	//本地地址
-	sockaddr_in m_raddr;	//远程地址
-	bool m_isBusy;
-	YondSendQueue<std::vector<char>> m_vecSend;		//发送数据队列
-};
 
 class CYondServer :
 	public ThreadFuncBase
@@ -149,7 +151,7 @@ public:
 	bool StartService();
 
 	bool NewAccept() {
-		PCLNT pClnt(new CYondClnt());
+		CYondClnt* pClnt(new CYondClnt());
 		pClnt->SetOverlaped(pClnt);
 		m_clnt.insert(std::pair<SOCKET, PCLNT>(*pClnt, pClnt));
 		if (!AcceptEx(
