@@ -133,8 +133,8 @@ void CRemoteClntDlg::InitUIData()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	UpdateData();
-	m_server_address = 0xC0A88B84;	//192.168.139.132
-	//m_server_address = 0x7F000001;		//127.0.0.1
+	//m_server_address = 0xC0A88B84;	//192.168.139.132
+	m_server_address = 0x7F000001;		//127.0.0.1
 	m_nPort = _T(PORT_NUM);
 	CClntController* pController = CClntController::getInstance();
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));

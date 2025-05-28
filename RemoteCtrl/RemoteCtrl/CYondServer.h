@@ -27,6 +27,11 @@ public:
 	CYondServer* m_server;		//服务器指针
 	CYondClnt* m_clnt;				//对应的客户端
 	WSABUF m_wsabuffer;
+	virtual ~YondOverlapped() {
+		m_buffer.clear();
+		m_wsabuffer.buf = NULL;
+		m_wsabuffer.len = 0;
+	}
 
 };
 
@@ -43,7 +48,12 @@ class CYondClnt : public ThreadFuncBase {
 public:
 	CYondClnt();
 	~CYondClnt() {
+		m_buffer.clear();
 		closesocket(m_sock);
+		m_recv.reset();
+		m_send.reset();
+		m_overlapped.reset();
+		m_vecSend.Clear();
 	}
 
 	void SetOverlaped(CYondClnt* ptr);
@@ -82,7 +92,6 @@ class AcceptOverlapped :public YondOverlapped, ThreadFuncBase
 public:
 	AcceptOverlapped();
 	int AcceptWorker();
-	CYondClnt* m_clnt;
 private:
 
 };
@@ -146,7 +155,7 @@ public:
 		m_addr.sin_addr.s_addr = inet_addr(ip.c_str());
 	}
 
-	~CYondServer() {}
+	~CYondServer();
 
 	bool StartService();
 

@@ -23,7 +23,7 @@ RecvOverlapped<op>::RecvOverlapped() {
 template<YondOperator op>
 int AcceptOverlapped<op>::AcceptWorker() {
 	INT lLength = 0, rLength = 0;
-	if (m_clnt->GetBufferSize() > 0) {
+	if (*((LPDWORD)*m_clnt) > 0) {
 		GetAcceptExSockaddrs(
 			*m_clnt, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
 			(sockaddr**)m_clnt->GetLoaclAddr(), &lLength,
@@ -128,6 +128,18 @@ int CYondClnt::SendData(std::vector<char>& data)
 		}
 	}
 	return 0;
+}
+
+CYondServer::~CYondServer()
+{
+	closesocket(m_sock);
+	std::map<SOCKET, PCLNT>::iterator it = m_clnt.begin();
+	for (; it != m_clnt.end(); it++) {
+		it->second.reset();
+	}
+	m_clnt.clear();
+	CloseHandle(m_hIOCP);
+	m_pool.Stop();
 }
 
 bool CYondServer::StartService() {

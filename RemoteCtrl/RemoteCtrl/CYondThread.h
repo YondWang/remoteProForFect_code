@@ -63,21 +63,25 @@ public:
 	bool Stop() {
 		if(m_bStatus == false) return true;
 		m_bStatus = false;
-		bool ret = WaitForSingleObject(m_hThread, INFINITE) == WAIT_OBJECT_0;
+		DWORD ret = WaitForSingleObject(m_hThread, 1000) == WAIT_OBJECT_0;
+		if (ret == WAIT_TIMEOUT) {
+			TerminateThread(m_hThread, -1);	//如果线程没有结束，强制终止线程
+		}
 		UpdateWorker();
-		return ret;
+		return ret == WAIT_OBJECT_0;
 	}
 
 	void UpdateWorker(const ::ThreadWorker& worker = ::ThreadWorker()) {
-		if (!worker.IsValid()) {
-			m_worker.store(NULL);
-			return;
-		}
-		if (m_worker.load() != NULL) {
+		if (m_worker.load() != NULL && (m_worker.load() != &worker)) {
 			::ThreadWorker* pWorker = m_worker.load();
 			m_worker.store(NULL);
 			delete pWorker;
 		}
+		if (!worker.IsValid()) {
+			m_worker.store(NULL);
+			return;
+		}
+		
 		m_worker.store(new ::ThreadWorker(worker));
 	}
 
@@ -87,14 +91,14 @@ public:
 		return !m_worker.load()->IsValid();
 	}
 private:
-	virtual void ThreadWorker() {
+	void ThreadWorker() {
 		while (m_bStatus) {
 			if (m_worker.load() == NULL) {
 				Sleep(1);
 				continue;
 			}
 			::ThreadWorker worker = *m_worker.load();
-			if (m_worker.load()->IsValid()) {
+			if (worker.IsValid()) {
 				int ret = worker();
 				if (ret != 0) {
 					CString str;
@@ -137,6 +141,10 @@ public:
 	}
 	~YondThreadPool() {
 		Stop();
+		for (size_t i = 0; i < m_threads.size(); i++) {
+			delete m_threads[i];
+			m_threads[i] = NULL;
+		}
 		m_threads.clear();
 	}
 	bool Invoke() {

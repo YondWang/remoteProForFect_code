@@ -31,7 +31,7 @@ public:
 
 public:
 	CYondQueue() {
-		m_atom = false;
+		m_lock = false;
 		m_hCompeletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);
 		m_hThread = INVALID_HANDLE_VALUE;
 		if (m_hCompeletionPort != NULL) {
@@ -40,9 +40,9 @@ public:
 				0, this);
 		}
 	}
-	~CYondQueue() {
-		if (m_atom) return;
-		m_atom = true;
+	virtual ~CYondQueue() {
+		if (m_lock) return;
+		m_lock = true;
 		PostQueuedCompletionStatus(m_hCompeletionPort, 0, NULL, NULL);
 		WaitForSingleObject(m_hThread, INFINITE);
 		if (m_hCompeletionPort != NULL) {
@@ -55,7 +55,7 @@ public:
 	}
 	bool PushBack(const T& data) {
 		IocpParam* pParam = new IocpParam(YDPush, data);
-		if (m_atom) {
+		if (m_lock) {
 			delete pParam;
 			return false;
 		}
@@ -64,10 +64,9 @@ public:
 		return ret;
 	}
 	virtual bool PopFront(T& data) {
-		if (m_atom) return false;
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		IocpParam Param(YDPop, data, hEvent);
-		if (m_atom) {
+		if (m_lock) {
 			if (hEvent) CloseHandle(hEvent);
 			return false;
 		}
@@ -85,7 +84,7 @@ public:
 	size_t Size() {
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		IocpParam Param(YDSize, T(), hEvent);
-		if (m_atom) {
+		if (m_lock) {
 			if (hEvent) CloseHandle(hEvent);
 			return -1;
 		}
@@ -101,7 +100,7 @@ public:
 		return -1;
 	}
 	bool Clear() {
-		if (m_atom) return false;
+		if (m_lock) return false;
 		IocpParam* pParam = new IocpParam(YDClear, T());
 		bool ret = PostQueuedCompletionStatus(m_hCompeletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
 		if (ret == false) delete pParam;
@@ -175,7 +174,7 @@ protected:
 	std::list<T> m_lstData;
 	HANDLE m_hCompeletionPort;
 	HANDLE m_hThread;
-	std::atomic<bool> m_atom;		//队列正在析构
+	std::atomic<bool> m_lock;		//队列正在析构
 
 };
 
@@ -190,8 +189,13 @@ public:
 		CYondQueue<T>(), m_base(obj), m_callback(callback)
 	{
 		m_thread.Start();
-		m_thread.UpdateWorker(::ThreadWorker(this, (FUNCTYPE)&YondSendQueue<T>::threadTick));
+		m_thread.UpdateWorker(::ThreadWorker(this, (FUNCTYPE)& YondSendQueue<T>::threadTick));
 
+	}
+	virtual ~YondSendQueue() {
+		m_base = NULL;
+		m_callback = NULL;
+		m_thread.Stop();
 	}
 
 protected:
@@ -200,9 +204,8 @@ protected:
 	}
 	bool PopFront()
 	{
-		if (CYondQueue<T>::m_atom) return false;
 		typename CYondQueue<T>::IocpParam* Param = new typename CYondQueue<T>::IocpParam(CYondQueue<T>::YDPop, T());
-		if (CYondQueue<T>::m_atom) {
+		if (CYondQueue<T>::m_lock) {
 			delete Param;
 			return false;
 		}
@@ -214,10 +217,11 @@ protected:
 		return ret;
 	}
 	int threadTick() {
-		if (CYondQueue<T>::m_lstData.size() > 0) {
+		if(WaitForSingleObject(CYondQueue<T>::m_hThread, 0) != WAIT_TIMEOUT) 
+			return 0;
+		if (CYondQueue<T>::m_lstData.size() > 0 ) {
 			PopFront();
 		}
-		Sleep(1);
 		return 0;
 	}
 	void DealParam(typename CYondQueue<T>::PPARAM* pParam) {
