@@ -63,7 +63,9 @@ public:
 	operator LPOVERLAPPED();
 	operator LPDWORD();
 	LPWSABUF RecvWSABuffer();
+	LPWSAOVERLAPPED RecvOverlapped();
 	LPWSABUF SendWSABuffer();
+	LPWSAOVERLAPPED SendOverlapped();
 	DWORD& flags() { return m_flags; }
 	sockaddr_in* GetLoaclAddr() { return &m_laddr; }
 	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
@@ -158,21 +160,12 @@ public:
 	~CYondServer();
 
 	bool StartService();
-
-	bool NewAccept() {
-		CYondClnt* pClnt(new CYondClnt());
-		pClnt->SetOverlaped(pClnt);
-		m_clnt.insert(std::pair<SOCKET, PCLNT>(*pClnt, pClnt));
-		if (!AcceptEx(
-			m_sock, *pClnt, *pClnt, 0,
-			sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-			*pClnt, *pClnt)) {
-			return false;
-		}
-		return true;
-	}
+	bool NewAccept();
+	void BindNewSocket(SOCKET sock);
 private:
 	void CreatSocket() {
+		WSADATA WSAData;
+		WSAStartup(MAKEWORD(2, 2), &WSAData);
 		m_sock = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 		int opt = 1;
 		setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
