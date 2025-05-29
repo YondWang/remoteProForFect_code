@@ -51,16 +51,6 @@ SendOverlapped<op>::SendOverlapped() {
 	m_buffer.resize(1024 * 256);
 }
 
-template<YondOperator op>
-ErrorOverlapped<op>::ErrorOverlapped() {
-	m_operator = op;
-	m_worker = ThreadWorker(this, (FUNCTYPE)&ErrorOverlapped::ErrorWorker);
-	memset(&m_overlapped, 0, sizeof(m_overlapped));
-	m_buffer.resize(1024);
-}
-
-
-
 CYondClnt::CYondClnt() : 
 	m_isBusy(false), m_flags(0) 
 	, m_overlapped(new ACCEPTOVERLAPPED()) ,
@@ -145,6 +135,14 @@ int CYondClnt::SendData(std::vector<char>& data)
 	return 0;
 }
 
+CYondServer::CYondServer(const std::string& ip, short port) : m_pool(10) {
+	m_hIOCP = INVALID_HANDLE_VALUE;
+	m_sock = INVALID_SOCKET;
+	m_addr.sin_family = PF_INET;
+	m_addr.sin_port = htons(port);
+	m_addr.sin_addr.s_addr = inet_addr(ip.c_str());
+}
+
 CYondServer::~CYondServer()
 {
 	closesocket(m_sock);
@@ -194,12 +192,10 @@ bool CYondServer::NewAccept() {
 	CYondClnt* pClnt(new CYondClnt());
 	pClnt->SetOverlaped(pClnt);
 	m_clnt.insert(std::pair<SOCKET, PCLNT>(*pClnt, pClnt));
-	if (!AcceptEx(
-		m_sock, *pClnt, *pClnt, 0,
-		sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-		*pClnt, *pClnt)) {
+	if (!AcceptEx(m_sock, *pClnt, *pClnt, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, *pClnt, *pClnt)) {
 		TRACE("%d \r\n", WSAGetLastError());
 		if (WSAGetLastError() != WSA_IO_PENDING) {
+			closesocket(m_sock);
 			m_sock = INVALID_SOCKET;
 			m_hIOCP = INVALID_HANDLE_VALUE;
 			return false;

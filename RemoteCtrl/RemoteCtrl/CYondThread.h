@@ -101,17 +101,20 @@ private:
 			}
 			::ThreadWorker worker = *m_worker.load();
 			if (worker.IsValid()) {
-				int ret = worker();
-				if (ret != 0) {
-					CString str;
-					str.Format(_T("thread found warning code %d\r\n"), ret);
-					OutputDebugString(str);
+				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT) {
+					int ret = worker();
+					if (ret != 0) {
+						CString str;
+						str.Format(_T("thread found warning code %d\r\n"), ret);
+						OutputDebugString(str);
+					}
+					if (ret < 0) {
+						::ThreadWorker* pWorker = m_worker.load();
+						m_worker.store(NULL);
+						delete pWorker;
+					}
 				}
-				if (ret < 0) {
-					::ThreadWorker* pWorker = m_worker.load();
-					m_worker.store(NULL);
-					delete pWorker;
-				}
+				
 			}
 			else {
 				Sleep(1);
