@@ -152,23 +152,25 @@ void iocp() {
 	getchar();
 }
 
+/*
+* 1 易用性
+*	a 简化参数
+*/
+#include "YSocket.h"
+
 void udp_server() {
 	printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
-	SOCKET sock = socket(PF_INET, SOCK_DGRAM, 0);
-	if (sock == INVALID_SOCKET) {
+	//SOCKET sock = socket(PF_INET, SOCK_DGRAM, 0);
+	YSOCKET sock(new YSocket(YTYPE::YondUDP));
+	if (*sock == INVALID_SOCKET) {
 		printf("%s(%d):%s ERROR!!!!(%d)\r\n", __FILE__, __LINE__, __FUNCTION__, WSAGetLastError());
 		return;
 	}
 	std::list<sockaddr_in>lstclients;
-	sockaddr_in server, client;
-	memset(&server, 0, sizeof(sockaddr_in));
-	memset(&client, 0, sizeof(sockaddr_in));
-	server.sin_family = AF_INET;
-	server.sin_port = htons(20000);
-	server.sin_addr.s_addr = inet_addr("127.0.0.1");
-	if (-1 == bind(sock, (sockaddr*)&server, sizeof(sockaddr_in))) {
+	YSockaddrIn server("127.0.0.1", 20000);
+	sockaddr_in client;
+	if (-1 == bind(*sock, server, sizeof(sockaddr_in))) {
 		printf("%s(%d):%s ERROR!!!!(%d)\r\n", __FILE__, __LINE__, __FUNCTION__, WSAGetLastError());
-		closesocket(sock);
 		return;
 	}
 	std::string buf;
@@ -177,17 +179,17 @@ void udp_server() {
 	int len = sizeof(client);
 	int ret = 0;
 	while (!_kbhit()) {
-		ret = recvfrom(sock, (char*)buf.c_str(), sizeof(buf), 0, (sockaddr*)&client, &len);
+		ret = recvfrom(*sock, (char*)buf.c_str(), sizeof(buf), 0, (sockaddr*)&client, &len);
 		if (ret > 0) {
 			if (lstclients.size() <= 0) {
 				lstclients.push_back(client);
 				printf("%s(%d):%s ip %08X port %d\r\n", __FILE__, __LINE__, __FUNCTION__, client.sin_addr.s_addr, client.sin_port);
-				ret = sendto(sock, buf.c_str(), ret, 0, (sockaddr*)&client, len);
+				ret = sendto(*sock, buf.c_str(), ret, 0, (sockaddr*)&client, len);
 				printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 			}
 			else {
 				memcpy((void*)buf.c_str(), &lstclients.front(), sizeof(lstclients.front()));
-				ret = sendto(sock, buf.c_str(), sizeof(lstclients.front()), 0, (sockaddr*)&client, len);
+				ret = sendto(*sock, buf.c_str(), sizeof(lstclients.front()), 0, (sockaddr*)&client, len);
 				printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 			}
 			//CTool::Dump((BYTE*)buf.c_str(), ret);
@@ -196,7 +198,6 @@ void udp_server() {
 			printf("%s(%d):%s ERROR(%d)!!!! ret = %d\r\n", __FILE__, __LINE__, __FUNCTION__, WSAGetLastError(), ret);
 		}
 	}
-	closesocket(sock);
 	printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
 }
 void udp_client(bool ishost) {
