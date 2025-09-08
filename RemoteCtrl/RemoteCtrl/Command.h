@@ -50,7 +50,7 @@ protected:
 		rect.top = 0;
 		rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
 		rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-		rect.bottom *= 1.10;
+		rect.bottom = LONG(rect.bottom * 1.10);
 		dlg.MoveWindow(rect);
 		CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
 		if (pText) {

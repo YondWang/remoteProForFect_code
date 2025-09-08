@@ -10,6 +10,13 @@
 #include <direct.h>
 #include <atlimage.h>
 #include "Command.h"
+#include <conio.h>
+#include "CYondQueue.h"
+#include <MSWSock.h>
+#include "CYondServer.h"
+
+//#define INVOKE_PATH _T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe")
+#define INVOKE_PATH _T("C:\\Users\\yond_wang\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl.exe")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -22,46 +29,131 @@ CWinApp theApp;
 using namespace std;
 
 
-int main()
-{
-	int nRetCode = 0;
+static bool ChooseAutoInvoke(const CString strPath) {
+	TCHAR wcsSystem[MAX_PATH] = _T("");
+	if (PathFileExists(strPath)) {
+		return true;
+	}
+	CString strInfo = _T("该程序只允许用于合法用途！！\n");
+	strInfo += _T("继续运行该程序，将使得这台计算机处于被监控状态!\n");
+	strInfo += _T("如果你不需要这样，请按取消按钮退出程序!\n");
+	strInfo += _T("按下是按钮，该程序将被复制到你的机器上，并随系统启动而自动运行!\n");
+	strInfo += _T("按下否按钮，程序只运行本次，不会在系统重留下任何东西！\n");
 
-	HMODULE hModule = ::GetModuleHandle(nullptr);
-
-	if (hModule != nullptr)
-	{
-		// 初始化 MFC 并在失败时显示错误  
-		if (!AfxWinInit(hModule, nullptr, ::GetCommandLine(), 0))
-		{
-			// TODO: 在此处为应用程序的行为编写代码。
-			wprintf(L"错误: MFC 初始化失败\n");
-			nRetCode = 1;
+	int ret = MessageBox(NULL, strInfo, _T("警告！"), MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
+	if (ret == IDYES) {
+		//WriteRegisterTable();
+		if (CTool::WriteStartupDir(strPath)) {
+			MessageBox(NULL, _T("复制文件失败，是否权限不足\r\n"), _T("错误"), MB_ICONERROR | MB_TOPMOST);
+			return false;
 		}
-		else
-		{
-			CCommand cmd;
-			int ret = CServerSocket::getInstence()->Run(&CCommand::RunCommand, &cmd);
-			switch (ret)
-			{
-			case -1:
-				MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-				exit(0);
-				break;
-			case -2:
-				MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
-				exit(0);
-				break;
-			default:
-				break;
+	}
+	else if (ret == IDCANCEL) {
+		return false;
+	}
+	return true;
+}
+
+void iocp();
+
+void udp_server();
+void udp_client(bool ishost = true);
+
+int main(int argc, char* argv[])
+{
+
+
+	if (!CTool::Init()) return 1;
+
+	if (argc == 1) {		
+		char wstrDir[MAX_PATH];
+		GetCurrentDirectoryA(MAX_PATH, wstrDir);
+		STARTUPINFOA si;
+		PROCESS_INFORMATION pi;
+		memset(&si, 0, sizeof(si));
+		memset(&pi, 0, sizeof(pi));
+		string strCmd = argv[0];
+		strCmd += " 1";
+		BOOL bRet = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, 0, NULL, wstrDir, &si, &pi);
+		if (bRet) {
+			CloseHandle(pi.hThread);
+			CloseHandle(pi.hProcess);
+			TRACE("进程ID：%d \r\n", pi.dwProcessId);
+			TRACE("线程ID：%d \r\n", pi.dwThreadId);
+			strCmd += " 2";
+			bRet = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, wstrDir, &si, &pi);
+			if (bRet) {
+				CloseHandle(pi.hThread);
+				CloseHandle(pi.hProcess);
+				TRACE("进程ID：%d \r\n", pi.dwProcessId);
+				TRACE("线程ID：%d \r\n", pi.dwThreadId);
+				udp_server();	//服务器
+			}
+		}
+		else if (argc == 2) {	//就是主客户端
+			udp_client();
+		}
+		else {					//从客户端
+			udp_client(false);
+		}
+		
+	}
+
+	//iocp();
+
+	/*if (CTool::IsAdmin()) {
+	if (!CTool::Init()) return 1;
+	if (ChooseAutoInvoke(INVOKE_PATH)) {
+		CCommand cmd;
+		int ret = CServerSocket::getInstence()->Run(&CCommand::RunCommand, &cmd);
+		switch (ret) {
+		case -1:
+			MessageBox(NULL, _T("网络初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+			break;
+		case -2:
+			MessageBox(NULL, _T("重试超时"), _T("请稍后再试！"), MB_OK | MB_ICONERROR);
+			break;
 			}
 		}
 	}
-	else
-	{
-		// TODO: 更改错误代码以符合需要
-		wprintf(L"错误: GetModuleHandle 失败\n");
-		nRetCode = 1;
-	}
+	else if (CTool::RunAsAdmin() == false) {
+			CTool::ShowError();
+			return 1;
+	}*/
 
-	return nRetCode;
+	return 0;
+}
+
+class COverlapped {
+public:
+	OVERLAPPED m_overlapped;
+	DWORD m_operator;
+	char m_buffer[4096];
+	COverlapped() {
+		m_operator = 0;
+		memset(&m_overlapped, 0, sizeof(m_overlapped));
+		memset(&m_buffer, 0, sizeof(m_buffer));
+	}
+};
+
+void iocp() {
+	CYondServer server;
+	server.StartService();
+	getchar();
+	
+
+}
+
+
+void udp_server() {
+	printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
+	getchar();
+}
+void udp_client(bool ishost) {
+	if (ishost) {
+		printf("%s(%d):%s\r\n", __FILE__, __LINE__, __FUNCTION__);
+	}
+	else {
+
+	}
 }
